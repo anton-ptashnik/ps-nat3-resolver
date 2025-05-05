@@ -22,6 +22,7 @@ case $ACTION in
     scp -i $SSH_KEY_PATH $DATADIR_PATH/wg0-server.conf root@$SERVER_IP:/etc/wireguard/wg0.conf
 
     echo "Setup WG on a client (this machine)"
+    export SERVER_IP
     envsubst < $DATADIR_PATH/wg0-client.conf > /etc/wireguard/wg0.conf
 
     echo "Activate a WG link"
@@ -39,8 +40,8 @@ case $ACTION in
 
   init)
     echo "Render config templates"
-    envsubst < $DATADIR_PATH/wg0-client-template.conf > ./wg0-client.conf
-    envsubst < $DATADIR_PATH/wg0-server-template.conf > ./wg0-server.conf
+    envsubst < $DATADIR_PATH/wg0-client-template.conf > $DATADIR_PATH/wg0-client.conf
+    envsubst < $DATADIR_PATH/wg0-server-template.conf > $DATADIR_PATH/wg0-server.conf
 
     echo "Install dependencies"
     sudo apt install -y wireguard
