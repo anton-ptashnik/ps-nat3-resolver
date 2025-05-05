@@ -3,7 +3,7 @@
 set -e
 
 SCRIPT_PATH=$(dirname "$0")
-DATADIR_PATH=$SCRIPT_PATH
+DATADIR_PATH=$SCRIPT_PATH/config
 source $DATADIR_PATH/vars.sh
 
 echo "Deactivating a WG link..."
