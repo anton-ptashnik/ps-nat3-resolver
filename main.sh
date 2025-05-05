@@ -46,6 +46,26 @@ case $ACTION in
     sudo mv ~/doctl /usr/local/bin
     rm doctl.tar.gz
 
+    DEFAULT_SSH_KEY_PATH=$DATADIR_PATH/digital-ocean
+    if [[ ! -n "$SSH_KEY_PATH" ]]; then
+        echo "SSH_KEY_PATH is not set. Creating a key..."
+        ssh-keygen -t ed25519 -N "" -f $DEFAULT_SSH_KEY_PATH -C "digital-ocean"
+        SSH_KEY_PATH=$DEFAULT_SSH_KEY_PATH
+        echo "SSH_KEY_PATH=$SSH_KEY_PATH" >> $DATADIR_PATH/user.conf
+    fi
+
+    [[ -f "$SSH_KEY_PATH"  ]] || { echo "SSH key not found at $SSH_KEY_PATH. Please fix SSH_KEY_PATH and rerun"; exit 1; }
+
+    SSH_PUBKEY_PATH="${SSH_KEY_PATH}.pub"
+
+    read SSH_KEY_FINGERPRINT <<< $(ssh-keygen -E md5 -lf "${SSH_KEY_PATH}.pub" | awk '{print $2}' | sed 's/^MD5://')
+    if ! doctl compute ssh-key get $SSH_KEY_FINGERPRINT -t "$DO_TOKEN" >& /dev/null; then
+        echo "Uploading the key to Digital ocean"
+        doctl compute ssh-key import example-key --public-key-file "$SSH_PUBKEY_PATH"
+    else
+        echo "Skip: Uploading the key to Digital ocean. The key already exists"
+    fi
+
     echo "Check WG keys presence"
     if [[ ! -n "$WG_SERVER_PUBKEY" ]]; then
       echo "Generate WG keys"
