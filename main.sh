@@ -39,16 +39,29 @@ case $ACTION in
     ;;
 
   init)
-    echo "Render config templates"
-    envsubst < $DATADIR_PATH/wg0-client-template.conf > $DATADIR_PATH/wg0-client.conf
-    envsubst < $DATADIR_PATH/wg0-server-template.conf > $DATADIR_PATH/wg0-server.conf
-
     echo "Install dependencies"
     sudo apt install -y wireguard
     wget https://github.com/digitalocean/doctl/releases/download/v1.124.0/doctl-1.124.0-linux-amd64.tar.gz -O doctl.tar.gz
     tar xf doctl.tar.gz
     sudo mv ~/doctl /usr/local/bin
     rm doctl.tar.gz
+
+    echo "Check WG keys presence"
+    if [[ ! -n "$WG_SERVER_PUBKEY" ]]; then
+      echo "Generate WG keys"
+      export WG_SERVER_PRIVKEY=$(wg genkey)
+      export WG_SERVER_PUBKEY=$(echo $WG_SERVER_PRIVKEY | wg pubkey)
+      export WG_CLIENT_PRIVKEY=$(wg genkey)
+      export WG_CLIENT_PUBKEY=$(echo $WG_CLIENT_PRIVKEY | wg pubkey)
+      echo "export WG_SERVER_PRIVKEY=$WG_SERVER_PRIVKEY" >> $DATADIR_PATH/vars.sh
+      echo "export WG_SERVER_PUBKEY=$WG_SERVER_PUBKEY" >> $DATADIR_PATH/vars.sh
+      echo "export WG_CLIENT_PRIVKEY=$WG_CLIENT_PRIVKEY" >> $DATADIR_PATH/vars.sh
+      echo "export WG_CLIENT_PUBKEY=$WG_CLIENT_PUBKEY" >> $DATADIR_PATH/vars.sh
+    fi
+
+    echo "Render config templates"
+    envsubst < $DATADIR_PATH/wg0-client-template.conf > $DATADIR_PATH/wg0-client.conf
+    envsubst < $DATADIR_PATH/wg0-server-template.conf > $DATADIR_PATH/wg0-server.conf
     ;;
 
   *)

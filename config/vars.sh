@@ -6,10 +6,12 @@ export WG_PORT=51820
 export SSH_PORT=22
 export DROPLET_NAME='ps-droplet'
 
-export WG_SERVER_PRIVKEY='some key'
-export WG_SERVER_PUBKEY='some key'
-export WG_CLIENT_PRIVKEY='some key'
-export WG_CLIENT_PUBKEY='some key'
+# Wireguard keys. Put your own if available or leave as is to autogenerate
+# export WG_SERVER_PRIVKEY='some key'
+# export WG_SERVER_PUBKEY='some key'
+# export WG_CLIENT_PRIVKEY='some key'
+# export WG_CLIENT_PUBKEY='some key'
+
 export PS_IP='your console IP address'
 export SSH_KEY_PATH='/path/to/ssh-private-key'
 export DO_TOKEN='your Digital Ocean API token'
