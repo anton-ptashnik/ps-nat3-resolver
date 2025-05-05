@@ -12,7 +12,8 @@ export DROPLET_NAME='ps-droplet'
 # export WG_CLIENT_PRIVKEY='some key'
 # export WG_CLIENT_PUBKEY='some key'
 
-export PS_IP='your console IP address'
-export SSH_KEY_PATH='/path/to/ssh-private-key'
-export DO_TOKEN='your Digital Ocean API token'
-export SERVER_IP='server IP address'
+# SSH key for server setup. Put your own if available or leave as is to autogenerate
+# export SSH_KEY_PATH='/path/to/ssh-private-key'
+
+# export PS_IP='your console IP address'
+# export DO_TOKEN='your Digital Ocean API token'

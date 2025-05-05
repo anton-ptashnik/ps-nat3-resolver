@@ -4,6 +4,7 @@ set -e
 
 SCRIPT_PATH=$(dirname "$0")
 DATADIR_PATH=$SCRIPT_PATH/config
+source $DATADIR_PATH/vars.sh
 
 ACTION=$1
 
@@ -39,6 +40,9 @@ case $ACTION in
     ;;
 
   init)
+    [[ -n "$DO_TOKEN" ]] || { echo "DO_TOKEN is not set. Please set and rerun"; exit 1; }
+    [[ -n "$PS_IP" ]] || { echo "PS_IP is not set. Please set and rerun"; exit 1; }
+
     echo "Install dependencies"
     sudo apt install -y wireguard
     wget https://github.com/digitalocean/doctl/releases/download/v1.124.0/doctl-1.124.0-linux-amd64.tar.gz -O doctl.tar.gz
@@ -51,7 +55,7 @@ case $ACTION in
         echo "SSH_KEY_PATH is not set. Creating a key..."
         ssh-keygen -t ed25519 -N "" -f $DEFAULT_SSH_KEY_PATH -C "digital-ocean"
         SSH_KEY_PATH=$DEFAULT_SSH_KEY_PATH
-        echo "SSH_KEY_PATH=$SSH_KEY_PATH" >> $DATADIR_PATH/user.conf
+        echo "SSH_KEY_PATH=$SSH_KEY_PATH" >> $DATADIR_PATH/vars.sh
     fi
 
     [[ -f "$SSH_KEY_PATH"  ]] || { echo "SSH key not found at $SSH_KEY_PATH. Please fix SSH_KEY_PATH and rerun"; exit 1; }
