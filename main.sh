@@ -30,8 +30,18 @@ case $ACTION in
     sed -i "/SERVER_IP/d" $DATADIR_PATH/vars.sh
     echo "SERVER_IP=$SERVER_IP" >> $DATADIR_PATH/vars.sh
 
+    echo "Wait for a server to be accessible"
+    export SERVER_IP
+    export SSH_KEY_PATH
+    timeout 50 sh -c '
+      until ssh -i $SSH_KEY_PATH -o StrictHostKeyChecking=no root@$SERVER_IP "echo Server is ready"; do
+        echo "Server is still offline, waiting..."
+        sleep 5
+      done
+    ' || { echo "Failed to connect to the server within 50sec"; exit 1; }
+
     echo "Setup WG on a server"
-    ssh -i $SSH_KEY_PATH -o StrictHostKeyChecking=no root@$SERVER_IP "apt-get update && apt-get install -y wireguard"
+    ssh -i $SSH_KEY_PATH root@$SERVER_IP "apt-get update && apt-get install -y wireguard"
     scp -i $SSH_KEY_PATH $DATADIR_PATH/wg0-server.conf root@$SERVER_IP:/etc/wireguard/wg0.conf
 
     echo "Setup WG on a client (this machine)"
