@@ -106,6 +106,8 @@ case $ACTION in
     fi
 
     echo "Render config templates"
+    export PS_IP
+    export SERVER_IP='$SERVER_IP'
     envsubst < $DATADIR_PATH/wg0-client-template.conf > $DATADIR_PATH/wg0-client.conf
     envsubst < $DATADIR_PATH/wg0-server-template.conf > $DATADIR_PATH/wg0-server.conf
     ;;
