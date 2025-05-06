@@ -41,7 +41,12 @@ case $ACTION in
     ' || { echo "Failed to connect to the server within 50sec"; exit 1; }
 
     echo "Setup WG on a server"
-    ssh -i $SSH_KEY_PATH root@$SERVER_IP "apt-get update && apt-get install -y wireguard"
+    timeout 80 sh -c '
+      until ssh -i $SSH_KEY_PATH root@$SERVER_IP "DEBIAN_FRONTEND=noninteractive apt-get update && apt-get install -y wireguard"; do
+        echo "Retrying server setup in 10sec..."
+        sleep 10
+      done
+    '
     scp -i $SSH_KEY_PATH $DATADIR_PATH/wg0-server.conf root@$SERVER_IP:/etc/wireguard/wg0.conf
 
     echo "Setup WG on a client (this machine)"
