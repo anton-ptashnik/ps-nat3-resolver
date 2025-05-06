@@ -8,6 +8,18 @@ source $DATADIR_PATH/vars.sh
 
 ACTION=$1
 
+usage() {
+    echo "Usage: sudo $0 up|down"
+    echo
+    echo "Note init is required before the first usage!"
+    echo
+    echo "Example:"
+    echo "  sudo $0 init - to prepare the script for the first usage"
+    echo "  sudo $0 up - to setup network"
+    echo "  sudo $0 down - to cleanup network"
+    exit 1
+}
+
 case $ACTION in
   up)
     echo "Create a droplet..."
@@ -89,6 +101,6 @@ case $ACTION in
     ;;
 
   *)
-    echo "unknown command"
+    usage
     ;;
 esac
