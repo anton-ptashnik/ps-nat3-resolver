@@ -4,7 +4,11 @@ set -e
 
 SCRIPT_PATH=$(dirname "$0")
 DATADIR_PATH=$SCRIPT_PATH/config
-source $DATADIR_PATH/vars.sh
+BASE_CONF_PATH=$DATADIR_PATH/base.conf.sh
+USER_CONF_PATH=$DATADIR_PATH/user.conf
+
+source $BASE_CONF_PATH
+source $USER_CONF_PATH
 
 ACTION=$1
 
@@ -27,8 +31,8 @@ case $ACTION in
     RES=$(doctl compute droplet create $DROPLET_NAME --size s-1vcpu-512mb-10gb --image ubuntu-24-04-x64 --region nyc1 --ssh-keys $SSH_KEY_FINGERPRINT --wait --format PublicIPv4 --no-header -t "$DO_TOKEN")
     read SERVER_IP <<< $RES
 
-    sed -i "/SERVER_IP/d" $DATADIR_PATH/vars.sh
-    echo "SERVER_IP=$SERVER_IP" >> $DATADIR_PATH/vars.sh
+    sed -i "/SERVER_IP/d" $BASE_CONF_PATH
+    echo "SERVER_IP=$SERVER_IP" >> $BASE_CONF_PATH
 
     echo "Wait for a server to be accessible"
     export SERVER_IP
@@ -82,7 +86,7 @@ case $ACTION in
         echo "SSH_KEY_PATH is not set. Creating a key..."
         ssh-keygen -t ed25519 -N "" -f $DEFAULT_SSH_KEY_PATH -C "digital-ocean"
         SSH_KEY_PATH=$DEFAULT_SSH_KEY_PATH
-        echo "SSH_KEY_PATH=$SSH_KEY_PATH" >> $DATADIR_PATH/vars.sh
+        echo "SSH_KEY_PATH=$SSH_KEY_PATH" >> $USER_CONF_PATH
     fi
 
     [[ -f "$SSH_KEY_PATH"  ]] || { echo "SSH key not found at $SSH_KEY_PATH. Please fix SSH_KEY_PATH and rerun"; exit 1; }
@@ -104,10 +108,10 @@ case $ACTION in
       export WG_SERVER_PUBKEY=$(echo $WG_SERVER_PRIVKEY | wg pubkey)
       export WG_CLIENT_PRIVKEY=$(wg genkey)
       export WG_CLIENT_PUBKEY=$(echo $WG_CLIENT_PRIVKEY | wg pubkey)
-      echo "export WG_SERVER_PRIVKEY=$WG_SERVER_PRIVKEY" >> $DATADIR_PATH/vars.sh
-      echo "export WG_SERVER_PUBKEY=$WG_SERVER_PUBKEY" >> $DATADIR_PATH/vars.sh
-      echo "export WG_CLIENT_PRIVKEY=$WG_CLIENT_PRIVKEY" >> $DATADIR_PATH/vars.sh
-      echo "export WG_CLIENT_PUBKEY=$WG_CLIENT_PUBKEY" >> $DATADIR_PATH/vars.sh
+      echo "export WG_SERVER_PRIVKEY=$WG_SERVER_PRIVKEY" >> $BASE_CONF_PATH
+      echo "export WG_SERVER_PUBKEY=$WG_SERVER_PUBKEY" >> $BASE_CONF_PATH
+      echo "export WG_CLIENT_PRIVKEY=$WG_CLIENT_PRIVKEY" >> $BASE_CONF_PATH
+      echo "export WG_CLIENT_PUBKEY=$WG_CLIENT_PUBKEY" >> $BASE_CONF_PATH
     fi
 
     echo "Render config templates"
