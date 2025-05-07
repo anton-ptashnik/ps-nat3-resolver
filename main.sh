@@ -78,7 +78,7 @@ do_allow_sshkey ()
 
 case $ACTION in
   up)
-    echo "Create a droplet..."
+    echo "Reserving a server on Digital Ocean..."
     read SSH_KEY_FINGERPRINT <<< $(ssh-keygen -E md5 -lf "${SSH_KEY_PATH}.pub" | awk '{print $2}' | sed 's/^MD5://')
     read DROPLET_ID SERVER_IP <<< "$(do_create_droplet $DROPLET_NAME)"
 
@@ -87,39 +87,37 @@ case $ACTION in
     echo "SERVER_IP=$SERVER_IP" >> $BASE_CONF_PATH
     echo "DROPLET_ID=$DROPLET_ID" >> $BASE_CONF_PATH
 
-    echo "Wait for a server to be accessible"
+    echo "Waiting for the server to become accessible..."
     export SERVER_IP
     export SSH_KEY_PATH
     timeout 50 sh -c '
-      until ssh -i $SSH_KEY_PATH -o StrictHostKeyChecking=no root@$SERVER_IP "echo Server is ready"; do
-        echo "Server is still offline, waiting..."
+      until ssh -i $SSH_KEY_PATH -o StrictHostKeyChecking=no root@$SERVER_IP "echo"; do
         sleep 5
       done
-    ' || { echo "Failed to connect to the server within 50sec"; exit 1; }
+    ' >& /dev/null
 
-    echo "Setup WG on a server"
+    echo "Setting up WG on the server..."
     timeout 80 sh -c '
       until ssh -i $SSH_KEY_PATH root@$SERVER_IP "DEBIAN_FRONTEND=noninteractive apt-get update && apt-get install -y wireguard"; do
-        echo "Retrying server setup in 10sec..."
         sleep 10
       done
-    '
-    scp -i $SSH_KEY_PATH $DATADIR_PATH/wg0-server.conf root@$SERVER_IP:/etc/wireguard/wg0.conf
+    ' >& /dev/null
+    scp -i $SSH_KEY_PATH $DATADIR_PATH/wg0-server.conf root@$SERVER_IP:/etc/wireguard/wg0.conf >& /dev/null
 
-    echo "Setup WG on a client (this machine)"
+    echo "Setting up WG on the client (this machine)..."
     export SERVER_IP
     envsubst < $DATADIR_PATH/wg0-client.conf > /etc/wireguard/wg0.conf
 
-    echo "Activate a WG link"
-    ssh -i $SSH_KEY_PATH root@$SERVER_IP "wg-quick up wg0"
-    wg-quick up wg0
+    echo "Activating a WG link"
+    ssh -i $SSH_KEY_PATH root@$SERVER_IP "wg-quick up wg0" >& /dev/null
+    wg-quick up wg0 >& /dev/null
     ;;
 
   down)
-    echo "Deactivating a WG link..."
-    wg-quick down wg0
+    echo "Deactivating a WG link"
+    wg-quick down wg0 >& /dev/null
 
-    echo "Removing a droplet..."
+    echo "Releasing the reserved server..."
     do_remove_droplet "$DROPLET_ID"
     ;;
 
@@ -127,7 +125,7 @@ case $ACTION in
     [[ -n "$DO_TOKEN" ]] || { echo "DO_TOKEN is not set. Please set and rerun"; exit 1; }
     [[ -n "$PS_IP" ]] || { echo "PS_IP is not set. Please set and rerun"; exit 1; }
 
-    echo "Install dependencies"
+    echo "Installing dependencies..."
     sudo apt install -y wireguard
     sudo apt install -y jq
 
@@ -143,16 +141,16 @@ case $ACTION in
 
     SSH_PUBKEY_PATH="${SSH_KEY_PATH}.pub"
 
-    echo "Check the SSH key is allowed on DO"
+    echo "Checking the SSH key is allowed on DO..."
     read SSH_KEY_FINGERPRINT <<< $(ssh-keygen -E md5 -lf "${SSH_KEY_PATH}.pub" | awk '{print $2}' | sed 's/^MD5://')
     if ! do_check_sshkey_allowed "$SSH_KEY_FINGERPRINT"; then
        echo "New SSH key. Do upload to allow on DO"
        do_upload_sshkey "$SSH_PUBKEY_PATH"
     fi
 
-    echo "Check WG keys presence"
+    echo "Checking WG keys presence"
     if [[ ! -n "$WG_SERVER_PUBKEY" ]]; then
-      echo "Generate WG keys"
+      echo "WG keys missing. Generating new keys..."
       export WG_SERVER_PRIVKEY=$(wg genkey)
       export WG_SERVER_PUBKEY=$(echo $WG_SERVER_PRIVKEY | wg pubkey)
       export WG_CLIENT_PRIVKEY=$(wg genkey)
@@ -163,7 +161,7 @@ case $ACTION in
       echo "export WG_CLIENT_PUBKEY=$WG_CLIENT_PUBKEY" >> $BASE_CONF_PATH
     fi
 
-    echo "Render config templates"
+    echo "Rendering config templates"
     export PS_IP
     export SERVER_IP='$SERVER_IP'
     envsubst < $DATADIR_PATH/wg0-client-template.conf > $DATADIR_PATH/wg0-client.conf
