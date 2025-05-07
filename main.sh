@@ -23,16 +23,69 @@ usage() {
     echo "  sudo $0 down - to cleanup network"
     exit 1
 }
+do_create_droplet ()
+{
+  local DROPLET_NAME=$1
+  DROPLET_ID=$(curl -sS -X POST \
+    -H "Content-Type: application/json" \
+    -H "Authorization: Bearer $DO_TOKEN" \
+    -d "{\"name\":\"$DROPLET_NAME\",\"region\":\"nyc1\",\"size\":\"s-1vcpu-512mb-10gb\",\"image\":\"ubuntu-24-04-x64\",\"ssh_keys\":[\"$SSH_KEY_FINGERPRINT\"]}" \
+    "https://api.digitalocean.com/v2/droplets" | jq .droplet.id)
+  SERVER_IP=$(timeout 50 sh -c '
+    DO_TOKEN=$0
+    DROPLET_ID=$1
+    IPADDR=null
+    until [ "$IPADDR" != "null" ]; do 
+      sleep 5
+      IPADDR=$(curl -sS -X GET \
+        -H "Content-Type: application/json" \
+        -H "Authorization: Bearer $DO_TOKEN" \
+        "https://api.digitalocean.com/v2/droplets/$DROPLET_ID" | jq ".droplet.networks.v4 | map(select(.type == \"public\")) | first | .ip_address")
+    done
+    echo $IPADDR
+  ' "$DO_TOKEN" "$DROPLET_ID")
+  SERVER_IP=$(echo "$SERVER_IP" | tr -d '"')
+  echo "$DROPLET_ID $SERVER_IP"
+}
+do_remove_droplet ()
+{
+  local DROPLET_ID=$1
+  curl -X DELETE \
+    -H "Content-Type: application/json" \
+    -H "Authorization: Bearer $DO_TOKEN" \
+    "https://api.digitalocean.com/v2/droplets/$DROPLET_ID"
+}
+do_check_sshkey_allowed ()
+{
+  SSH_KEY_FINGERPRINT=$1
+  OUT=$(curl -sS -X GET \
+    -H "Content-Type: application/json" \
+    -H "Authorization: Bearer $DO_TOKEN" \
+    "https://api.digitalocean.com/v2/account/keys" \
+    | jq ".ssh_keys | map(select(.fingerprint == \"$SSH_KEY_FINGERPRINT\")) | first")
+  [ "$OUT" != "null" ]
+}
+do_allow_sshkey ()
+{
+  SSH_PUBKEY_PATH=$1
+  SSH_PUBKEY=$(<$SSH_PUBKEY_PATH)
+  curl -sS -X POST \
+    -H "Content-Type: application/json" \
+    -H "Authorization: Bearer $DO_TOKEN" \
+    -d "{\"name\":\"droplet-key\",\"public_key\":\"$SSH_PUBKEY\"}" \
+    "https://api.digitalocean.com/v2/account/keys" >& /dev/null
+}
 
 case $ACTION in
   up)
     echo "Create a droplet..."
     read SSH_KEY_FINGERPRINT <<< $(ssh-keygen -E md5 -lf "${SSH_KEY_PATH}.pub" | awk '{print $2}' | sed 's/^MD5://')
-    RES=$(doctl compute droplet create $DROPLET_NAME --size s-1vcpu-512mb-10gb --image ubuntu-24-04-x64 --region nyc1 --ssh-keys $SSH_KEY_FINGERPRINT --wait --format PublicIPv4 --no-header -t "$DO_TOKEN")
-    read SERVER_IP <<< $RES
+    read DROPLET_ID SERVER_IP <<< "$(do_create_droplet $DROPLET_NAME)"
 
     sed -i "/SERVER_IP/d" $BASE_CONF_PATH
+    sed -i "/DROPLET_ID/d" $BASE_CONF_PATH
     echo "SERVER_IP=$SERVER_IP" >> $BASE_CONF_PATH
+    echo "DROPLET_ID=$DROPLET_ID" >> $BASE_CONF_PATH
 
     echo "Wait for a server to be accessible"
     export SERVER_IP
@@ -67,7 +120,7 @@ case $ACTION in
     wg-quick down wg0
 
     echo "Removing a droplet..."
-    doctl compute droplet delete -f $DROPLET_NAME -t "$DO_TOKEN"
+    do_remove_droplet "$DROPLET_ID"
     ;;
 
   init)
@@ -76,10 +129,7 @@ case $ACTION in
 
     echo "Install dependencies"
     sudo apt install -y wireguard
-    wget https://github.com/digitalocean/doctl/releases/download/v1.124.0/doctl-1.124.0-linux-amd64.tar.gz -O doctl.tar.gz
-    tar xf doctl.tar.gz
-    sudo mv ~/doctl /usr/local/bin
-    rm doctl.tar.gz
+    sudo apt install -y jq
 
     DEFAULT_SSH_KEY_PATH=$DATADIR_PATH/digital-ocean
     if [[ ! -n "$SSH_KEY_PATH" ]]; then
@@ -93,12 +143,11 @@ case $ACTION in
 
     SSH_PUBKEY_PATH="${SSH_KEY_PATH}.pub"
 
+    echo "Check the SSH key is allowed on DO"
     read SSH_KEY_FINGERPRINT <<< $(ssh-keygen -E md5 -lf "${SSH_KEY_PATH}.pub" | awk '{print $2}' | sed 's/^MD5://')
-    if ! doctl compute ssh-key get $SSH_KEY_FINGERPRINT -t "$DO_TOKEN" >& /dev/null; then
-        echo "Uploading the key to Digital ocean"
-        doctl compute ssh-key import example-key --public-key-file "$SSH_PUBKEY_PATH"
-    else
-        echo "Skip: Uploading the key to Digital ocean. The key already exists"
+    if ! do_check_sshkey_allowed "$SSH_KEY_FINGERPRINT"; then
+       echo "New SSH key. Do upload to allow on DO"
+       do_upload_sshkey "$SSH_PUBKEY_PATH"
     fi
 
     echo "Check WG keys presence"
