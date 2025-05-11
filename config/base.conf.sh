@@ -5,8 +5,3 @@ export WG_LINK_PREFIX=24
 export WG_ROUTING_TABLE=pstable
 export WG_PORT=51820
 export SSH_PORT=22
-
-# export WG_SERVER_PRIVKEY='some key'
-# export WG_SERVER_PUBKEY='some key'
-# export WG_CLIENT_PRIVKEY='some key'
-# export WG_CLIENT_PUBKEY='some key'
