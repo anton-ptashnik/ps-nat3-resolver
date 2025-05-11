@@ -129,10 +129,13 @@ case $ACTION in
     sudo apt install -y wireguard
     sudo apt install -y jq
 
-    DEFAULT_SSH_KEY_PATH=$DATADIR_PATH/digital-ocean
+    DEFAULT_SSH_KEY_PATH=/root/.ssh/digital-ocean
     if [[ ! -n "$SSH_KEY_PATH" ]]; then
-        echo "SSH_KEY_PATH is not set. Creating a key..."
-        ssh-keygen -t ed25519 -N "" -f $DEFAULT_SSH_KEY_PATH -C "digital-ocean"
+        echo "SSH_KEY_PATH is not set. Using a default SSH key"
+        if [[ ! -f "$DEFAULT_SSH_KEY_PATH" ]]; then
+          echo "Default SSH key is missing. Creating a key..."
+          ssh-keygen -t ed25519 -N "" -f $DEFAULT_SSH_KEY_PATH -C "digital-ocean"
+        fi
         SSH_KEY_PATH=$DEFAULT_SSH_KEY_PATH
         echo "SSH_KEY_PATH=$SSH_KEY_PATH" >> $USER_CONF_PATH
     fi
