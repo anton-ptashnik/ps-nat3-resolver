@@ -89,18 +89,18 @@ Take your Linux PC and download this repo, as ZIP for instance and unpack to any
 Once downloaded you need to fill params in a file `config/user.conf` before the first usage. When done, open a Terminal in the project root and enter:
 
 ```
-sudo ./main.sh init
+sudo ./psnat3resolver init
 ```
 
 This will prepare network config files based on values provided in `config/user.conf`. Now the script is ready for use.
 
 The script has only 2 commands, easy:
 
-- sudo ./main.sh up
+- sudo ./psnat3resolver up
 
 Setups the network, which includes: reserving a server, establishing a virtual link and setting up traffic flow to/from a console. Note it is the moment when you start to pay for a server since the server is reserved for you now
 
-- sudo ./main.sh down
+- sudo ./psnat3resolver down
 
 Cleanups the network, which includes the opposite: releasing a server and removing network config done by `up` command. Note it is the moment when you stop to pay for a server since the server is released now
 
