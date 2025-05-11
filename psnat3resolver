@@ -96,7 +96,7 @@ case $ACTION in
       done
     ' >& /dev/null
 
-    echo "Setting up WG on the server..."
+    echo "Setting up a virtual link on the server..."
     timeout 80 sh -c '
       until ssh -i $SSH_KEY_PATH root@$SERVER_IP "DEBIAN_FRONTEND=noninteractive apt-get update && apt-get install -y wireguard"; do
         sleep 10
@@ -104,17 +104,17 @@ case $ACTION in
     ' >& /dev/null
     scp -i $SSH_KEY_PATH $DATADIR_PATH/wg0-server.conf root@$SERVER_IP:/etc/wireguard/wg0.conf >& /dev/null
 
-    echo "Setting up WG on the client (this machine)..."
+    echo "Setting up a virtual link on the client (this machine)..."
     export SERVER_IP
     envsubst < $DATADIR_PATH/wg0-client.conf > /etc/wireguard/wg0.conf
 
-    echo "Activating a WG link"
+    echo "Activating a virtual link..."
     ssh -i $SSH_KEY_PATH root@$SERVER_IP "wg-quick up wg0" >& /dev/null
     wg-quick up wg0 >& /dev/null
     ;;
 
   down)
-    echo "Deactivating a WG link"
+    echo "Deactivating a virtual link..."
     wg-quick down wg0 >& /dev/null
 
     echo "Releasing the reserved server..."
