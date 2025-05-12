@@ -2,6 +2,11 @@
 
 set -e
 
+if [ "$EUID" -ne 0 ]; then
+  echo "Please run as root. The script requires root for network setup"
+  exit 1
+fi
+
 SCRIPT_PATH=$(dirname "$0")
 DATADIR_PATH=$SCRIPT_PATH/config
 BASE_CONF_PATH=$DATADIR_PATH/base.conf.sh
