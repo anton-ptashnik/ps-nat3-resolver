@@ -2,7 +2,9 @@
 
 Playstation console classifies how open it is for network connections and presents it as a NAT type in network settings. Possible types are from 1 to 3 while type 3 is the most strict and can prevent multiplayer to work in some games, like Gran Turismo 7.
 
-PS NAT 3 Resolver is a script that setups network in the way that you get NAT type 2 on a console. Note that this solution is not the only possible one and it may look tricky for some people, so I encourage to check next solutions first before using this one:
+PS NAT 3 Resolver is a script that setups network in the way that you get NAT type 2 on a console. It takes efforts for initial setup but easy in use later providing only 2 commands - setup and cleanup network configuration.
+
+Note that there are other solutions I encourage to check first because they are easier to follow and may help depending on your current network conditions:
 
 - if you have a public IP address, setup Port Forwarding
 - if you have a private IP address, ask your ISP for a public address. Once done, go back to a previous option - setup Port Forwarding
@@ -105,3 +107,13 @@ Setups the network, which includes: reserving a server, establishing a virtual l
 Cleanups the network, which includes the opposite: releasing a server and removing network config done by `up` command. Note it is the moment when you stop to pay for a server since the server is released now
 
 After doing `up` command check Internet connection on a console. Go to Settings->Network->Test connection, then after a few sec it should show NAT type 2. Multiplayer should work now, enjoy playing!
+
+## Recommendations
+
+- execute `down` command when have no plans to play
+
+You pay for a server the script reserves for you. Despite it is not expensive, 4$ per month, you can save by cleaning network setup when you are not going to play the next 5 days on instance. Just use `down` command and use `up` before playing the next time to setup network again
+
+- use wired connection
+
+For best network speed connect your console and a Linux machine to a router with cables. Wireless will also work but wired connection is usually faster
