@@ -7,7 +7,9 @@ if [ "$EUID" -ne 0 ]; then
   exit 1
 fi
 
-SCRIPT_PATH=$(dirname "$0")
+REAL_PATH=$(realpath "$0")
+SCRIPT_NAME=$(basename "$REAL_PATH")
+SCRIPT_PATH=$(dirname "$REAL_PATH")
 DATADIR_PATH=$SCRIPT_PATH/config
 BASE_CONF_PATH=$DATADIR_PATH/base.conf.sh
 USER_CONF_PATH=$DATADIR_PATH/user.conf
@@ -130,10 +132,6 @@ case $ACTION in
     [[ -n "$DO_TOKEN" ]] || { echo "DO_TOKEN is not set. Please set and rerun"; exit 1; }
     [[ -n "$PS_IP" ]] || { echo "PS_IP is not set. Please set and rerun"; exit 1; }
 
-    echo "Installing dependencies..."
-    sudo apt install -y wireguard
-    sudo apt install -y jq
-
     DEFAULT_SSH_KEY_PATH=/root/.ssh/digital-ocean
     if [[ ! -n "$SSH_KEY_PATH" ]]; then
         echo "SSH_KEY_PATH is not set. Using a default SSH key"
@@ -156,6 +154,14 @@ case $ACTION in
        do_upload_sshkey "$SSH_PUBKEY_PATH"
     fi
 
+    echo "Installing dependencies..."
+    sudo apt install -y wireguard
+    sudo apt install -y jq
+
+    echo "Installing a command shortcut (symlink)..."
+    rm -f /usr/local/bin/$SCRIPT_NAME
+    ln -s $SCRIPT_PATH/$SCRIPT_NAME /usr/local/bin/$SCRIPT_NAME
+
     echo "Checking WG keys presence"
     if [[ ! -n "$WG_SERVER_PUBKEY" ]]; then
       echo "WG keys missing. Generating new keys..."
@@ -174,6 +180,12 @@ case $ACTION in
     export SERVER_IP='$SERVER_IP'
     envsubst < $DATADIR_PATH/wg0-client-template.conf > $DATADIR_PATH/wg0-client.conf
     envsubst < $DATADIR_PATH/wg0-server-template.conf > $DATADIR_PATH/wg0-server.conf
+    ;;
+
+  deinit)
+    echo "Removing a command shortcut (symlink)..."
+    rm -f /usr/local/bin/$SCRIPT_NAME
+    echo "Done! Now you can remove a folder $SCRIPT_PATH to complete removal."
     ;;
 
   *)

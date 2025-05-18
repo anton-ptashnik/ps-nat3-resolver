@@ -98,13 +98,22 @@ This will prepare network config files based on values provided in `config/user.
 
 The script has only 2 commands, easy:
 
-- sudo ./psnat3resolver up
+- sudo psnat3resolver up
 
 Setups the network, which includes: reserving a server, establishing a virtual link and setting up traffic flow to/from a console. Note it is the moment when you start to pay for a server since the server is reserved for you now
 
-- sudo ./psnat3resolver down
+- sudo psnat3resolver down
 
 Cleanups the network, which includes the opposite: releasing a server and removing network config done by `up` command. Note it is the moment when you stop to pay for a server since the server is released now
+
+- sudo psnat3resolver init
+
+Call this before the first script usage and after updating any values in `config/user.conf`. The command prepares network config files based on `config/user.conf`, installs required dependencies and setups a script shortcut (symlink) to call the script from any location
+
+- sudo psnat3resolver deinit
+
+Call this before script removal, then remove a folder containing the script to complete removal.
+The command does the opposite to `init`
 
 After doing `up` command check Internet connection on a console. Go to Settings->Network->Test connection, then after a few sec it should show NAT type 2. Multiplayer should work now, enjoy playing!
 
