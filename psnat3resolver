@@ -33,12 +33,12 @@ usage() {
 do_droplet_create ()
 {
   local DROPLET_NAME=$1
-  DROPLET_ID=$(curl -sS -X POST \
+  local DROPLET_ID=$(curl -sS -X POST \
     -H "Content-Type: application/json" \
     -H "Authorization: Bearer $DO_TOKEN" \
     -d "{\"name\":\"$DROPLET_NAME\",\"region\":\"nyc1\",\"size\":\"s-1vcpu-512mb-10gb\",\"image\":\"ubuntu-24-04-x64\",\"ssh_keys\":[\"$SSH_KEY_FINGERPRINT\"]}" \
     "https://api.digitalocean.com/v2/droplets" | jq .droplet.id)
-  SERVER_IP=$(timeout 50 sh -c '
+  local SERVER_IP=$(timeout 50 sh -c '
     DO_TOKEN=$0
     DROPLET_ID=$1
     IPADDR=null
@@ -64,8 +64,8 @@ do_droplet_remove ()
 }
 do_sshkey_check_whitelisted ()
 {
-  SSH_KEY_FINGERPRINT=$1
-  OUT=$(curl -sS -X GET \
+  local SSH_KEY_FINGERPRINT=$1
+  local OUT=$(curl -sS -X GET \
     -H "Content-Type: application/json" \
     -H "Authorization: Bearer $DO_TOKEN" \
     "https://api.digitalocean.com/v2/account/keys" \
@@ -74,8 +74,8 @@ do_sshkey_check_whitelisted ()
 }
 do_sshkey_whitelist ()
 {
-  SSH_PUBKEY_PATH=$1
-  SSH_PUBKEY=$(<$SSH_PUBKEY_PATH)
+  local SSH_PUBKEY_PATH=$1
+  local SSH_PUBKEY=$(<$SSH_PUBKEY_PATH)
   curl -sS -X POST \
     -H "Content-Type: application/json" \
     -H "Authorization: Bearer $DO_TOKEN" \
