@@ -9,10 +9,10 @@ fi
 
 REAL_PATH=$(realpath "$0")
 SCRIPT_NAME=$(basename "$REAL_PATH")
-SCRIPT_PATH=$(dirname "$REAL_PATH")
-DATADIR_PATH=$SCRIPT_PATH/config
-BASE_CONF_PATH=$DATADIR_PATH/base.conf.sh
-USER_CONF_PATH=$DATADIR_PATH/user.conf
+SCRIPT_DIR_PATH=$(dirname "$REAL_PATH")
+CONF_DIR_PATH=$SCRIPT_DIR_PATH/config
+BASE_CONF_PATH=$CONF_DIR_PATH/base.conf.sh
+USER_CONF_PATH=$CONF_DIR_PATH/user.conf
 
 source $BASE_CONF_PATH
 source $USER_CONF_PATH
@@ -30,7 +30,7 @@ usage() {
     echo "  sudo $0 down - to cleanup network"
     exit 1
 }
-do_create_droplet ()
+do_droplet_create ()
 {
   local DROPLET_NAME=$1
   DROPLET_ID=$(curl -sS -X POST \
@@ -54,7 +54,7 @@ do_create_droplet ()
   SERVER_IP=$(echo "$SERVER_IP" | tr -d '"')
   echo "$DROPLET_ID $SERVER_IP"
 }
-do_remove_droplet ()
+do_droplet_remove ()
 {
   local DROPLET_ID=$1
   curl -X DELETE \
@@ -62,7 +62,7 @@ do_remove_droplet ()
     -H "Authorization: Bearer $DO_TOKEN" \
     "https://api.digitalocean.com/v2/droplets/$DROPLET_ID"
 }
-do_check_sshkey_allowed ()
+do_sshkey_check_whitelisted ()
 {
   SSH_KEY_FINGERPRINT=$1
   OUT=$(curl -sS -X GET \
@@ -72,7 +72,7 @@ do_check_sshkey_allowed ()
     | jq ".ssh_keys | map(select(.fingerprint == \"$SSH_KEY_FINGERPRINT\")) | first")
   [ "$OUT" != "null" ]
 }
-do_allow_sshkey ()
+do_sshkey_whitelist ()
 {
   SSH_PUBKEY_PATH=$1
   SSH_PUBKEY=$(<$SSH_PUBKEY_PATH)
@@ -87,7 +87,7 @@ case $ACTION in
   up)
     echo "Reserving a server on Digital Ocean..."
     read SSH_KEY_FINGERPRINT <<< $(ssh-keygen -E md5 -lf "${SSH_KEY_PATH}.pub" | awk '{print $2}' | sed 's/^MD5://')
-    read DROPLET_ID SERVER_IP <<< "$(do_create_droplet $DROPLET_NAME)"
+    read DROPLET_ID SERVER_IP <<< "$(do_droplet_create $DROPLET_NAME)"
 
     sed -i "/SERVER_IP/d" $BASE_CONF_PATH
     sed -i "/DROPLET_ID/d" $BASE_CONF_PATH
@@ -109,11 +109,10 @@ case $ACTION in
         sleep 10
       done
     ' >& /dev/null
-    scp -i $SSH_KEY_PATH $DATADIR_PATH/wg0-server.conf root@$SERVER_IP:/etc/wireguard/wg0.conf >& /dev/null
+    scp -i $SSH_KEY_PATH $CONF_DIR_PATH/wg0-server.conf root@$SERVER_IP:/etc/wireguard/wg0.conf >& /dev/null
 
     echo "Setting up a virtual link on the client (this machine)..."
-    export SERVER_IP
-    envsubst < $DATADIR_PATH/wg0-client.conf > /etc/wireguard/wg0.conf
+    envsubst < $CONF_DIR_PATH/wg0-client.conf > /etc/wireguard/wg0.conf
 
     echo "Activating a virtual link..."
     ssh -i $SSH_KEY_PATH root@$SERVER_IP "wg-quick up wg0" >& /dev/null
@@ -125,7 +124,7 @@ case $ACTION in
     wg-quick down wg0 >& /dev/null
 
     echo "Releasing the reserved server..."
-    do_remove_droplet "$DROPLET_ID"
+    do_droplet_remove "$DROPLET_ID"
     ;;
 
   init)
@@ -147,11 +146,11 @@ case $ACTION in
 
     SSH_PUBKEY_PATH="${SSH_KEY_PATH}.pub"
 
-    echo "Checking the SSH key is allowed on DO..."
+    echo "Checking if the SSH key is whitelisted on Digital Ocean..."
     read SSH_KEY_FINGERPRINT <<< $(ssh-keygen -E md5 -lf "${SSH_KEY_PATH}.pub" | awk '{print $2}' | sed 's/^MD5://')
-    if ! do_check_sshkey_allowed "$SSH_KEY_FINGERPRINT"; then
-       echo "New SSH key. Do upload to allow on DO"
-       do_upload_sshkey "$SSH_PUBKEY_PATH"
+    if ! do_sshkey_check_whitelisted "$SSH_KEY_FINGERPRINT"; then
+       echo "New SSH key. Whitelisting the key on Digital Ocean..."
+       do_sshkey_whitelist "$SSH_PUBKEY_PATH"
     fi
 
     echo "Installing dependencies..."
@@ -160,7 +159,7 @@ case $ACTION in
 
     echo "Installing a command shortcut (symlink)..."
     rm -f /usr/local/bin/$SCRIPT_NAME
-    ln -s $SCRIPT_PATH/$SCRIPT_NAME /usr/local/bin/$SCRIPT_NAME
+    ln -s $SCRIPT_DIR_PATH/$SCRIPT_NAME /usr/local/bin/$SCRIPT_NAME
 
     echo "Checking WG keys presence"
     if [[ ! -n "$WG_SERVER_PUBKEY" ]]; then
@@ -178,14 +177,14 @@ case $ACTION in
     echo "Rendering config templates"
     export PS_IP
     export SERVER_IP='$SERVER_IP'
-    envsubst < $DATADIR_PATH/wg0-client-template.conf > $DATADIR_PATH/wg0-client.conf
-    envsubst < $DATADIR_PATH/wg0-server-template.conf > $DATADIR_PATH/wg0-server.conf
+    envsubst < $CONF_DIR_PATH/wg0-client-template.conf > $CONF_DIR_PATH/wg0-client.conf
+    envsubst < $CONF_DIR_PATH/wg0-server-template.conf > $CONF_DIR_PATH/wg0-server.conf
     ;;
 
   deinit)
     echo "Removing a command shortcut (symlink)..."
     rm -f /usr/local/bin/$SCRIPT_NAME
-    echo "Done! Now you can remove a folder $SCRIPT_PATH to complete removal."
+    echo "Done! Now you can remove a folder $SCRIPT_DIR_PATH to complete removal."
     ;;
 
   *)
