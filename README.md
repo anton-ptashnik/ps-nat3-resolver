@@ -84,17 +84,40 @@ Go to Settings->Network on a console and then Set up a new connection, select Ma
 
 Save. No connection is expected for now until the script starts.
 
-## Usage
+## Installation
 
-Take your Linux PC and download this repo, as ZIP for instance and unpack to any location.
-
-Once downloaded you need to fill params in a file `config/user.conf` before the first usage. When done, open a Terminal in the project root and enter:
+Download the latest version of the script as ZIP from [Releases](https://github.com/anton-ptashnik/ps-nat3-resolver/releases/latest) to your Linux PC and unpack to any location. Once downloaded you need to fill params in a file `config/user.conf` before the first usage. The file looks as below:
 
 ```
+# REQUIRED param
+# Digital Ocean API token used to let the script reserve/release a server
+# Put your value in between quotes
+DO_TOKEN=''
+
+# REQUIRED param
+# IP address of your console. Find it in console Settings->Network->View connection info
+# Put your value in between quotes
+PS_IP=''
+
+# OPTIONAL param
+# SSH key for server setup. Put your own if available or leave as is to autogenerate
+SSH_KEY_PATH=''
+```
+
+Parameters the script cannot work without are marked as REQUIRED, others are OPTIONAL and can be left empty. Fill params, close the file and run the command below to apply changes.
+
+Note that the script is a CLI application (non-GUI) so it should be run from a Terminal window. Find and open a Terminal app then run the script specifying a needed command, `init` in this case:
+
+```
+cd <path-to-script-folder>
 sudo ./psnat3resolver init
 ```
 
-This will prepare network config files based on values provided in `config/user.conf`. Now the script is ready for use.
+Where `<path-to-script-folder>` is a placeholder for an actual path to a script folder.
+
+Once `init` is done the script is ready for work. Now all commands can be run as provided in `Usage`, without a preceding `cd` command and `./` before the script name.
+
+## Usage
 
 The script has only 2 commands, easy:
 

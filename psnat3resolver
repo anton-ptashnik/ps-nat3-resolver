@@ -24,10 +24,11 @@ usage() {
     echo
     echo "Note init is required before the first usage!"
     echo
-    echo "Example:"
-    echo "  sudo $0 init - to prepare the script for the first usage"
-    echo "  sudo $0 up - to setup network"
-    echo "  sudo $0 down - to cleanup network"
+    echo "Commands:"
+    echo "  sudo $0 up - setup network"
+    echo "  sudo $0 down - cleanup network"
+    echo "  sudo $0 init - prepare the script for work"
+    echo "  sudo $0 deinit - prepare for script removal"
     exit 1
 }
 do_droplet_create ()
