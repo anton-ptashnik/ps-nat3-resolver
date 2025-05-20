@@ -85,17 +85,26 @@ do_sshkey_whitelist ()
     -d "{\"name\":\"droplet-key\",\"public_key\":\"$SSH_PUBKEY\"}" \
     "https://api.digitalocean.com/v2/account/keys" >& /dev/null
 }
+cfg_var_unset()
+{
+    local VAR_NAME=$1
+    sed -i "/\b$VAR_NAME\b=/d" $BASE_CONF_PATH
+}
+cfg_var_set()
+{
+    local VAR_NAME=$1
+    local VAR_VALUE=${!VAR_NAME}
+    cfg_var_unset $VAR_NAME
+    echo "export $VAR_NAME='$VAR_VALUE'" >> $BASE_CONF_PATH
+}
 
 case $ACTION in
   up)
     echo "Reserving a server on Digital Ocean..."
     read SSH_KEY_FINGERPRINT <<< $(ssh-keygen -E md5 -lf "${SSH_KEY_PATH}.pub" | awk '{print $2}' | sed 's/^MD5://')
     read DROPLET_ID SERVER_IP <<< "$(do_droplet_create $DROPLET_NAME)"
-
-    sed -i "/SERVER_IP/d" $BASE_CONF_PATH
-    sed -i "/DROPLET_ID/d" $BASE_CONF_PATH
-    echo "SERVER_IP=$SERVER_IP" >> $BASE_CONF_PATH
-    echo "DROPLET_ID=$DROPLET_ID" >> $BASE_CONF_PATH
+    cfg_var_set SERVER_IP
+    cfg_var_set DROPLET_ID
 
     echo "Waiting for the server to become accessible..."
     export SERVER_IP
@@ -128,6 +137,9 @@ case $ACTION in
 
     echo "Releasing the reserved server..."
     do_droplet_remove "$DROPLET_ID"
+
+    cfg_var_unset DROPLET_ID
+    cfg_var_unset SERVER_IP
     ;;
 
   init)
@@ -136,16 +148,17 @@ case $ACTION in
 
     if [[ -n "$USER_SSH_KEY_PATH" ]]; then
         [[ -f "$USER_SSH_KEY_PATH"  ]] || { echo "SSH key not found at $USER_SSH_KEY_PATH. Please fix SSH_KEY_PATH and rerun"; exit 1; }
-        SSH_KEY_PATH=$USER_SSH_KEY_PATH
+        SELECTED_SSH_KEY_PATH=$USER_SSH_KEY_PATH
     else
       echo "SSH_KEY_PATH is not set. Using a default SSH key"
       if [[ ! -f "$DEFAULT_SSH_KEY_PATH" ]]; then
         echo "Default SSH key is missing. Creating a key..."
         ssh-keygen -t ed25519 -N "" -f $DEFAULT_SSH_KEY_PATH -C "digital-ocean"
       fi
-      SSH_KEY_PATH=$DEFAULT_SSH_KEY_PATH
+      SELECTED_SSH_KEY_PATH=$DEFAULT_SSH_KEY_PATH
     fi
-    echo "SELECTED_SSH_KEY_PATH='$SSH_KEY_PATH'" >> $BASE_CONF_PATH
+    cfg_var_set SELECTED_SSH_KEY_PATH
+    SSH_KEY_PATH=$SELECTED_SSH_KEY_PATH
 
     SSH_PUBKEY_PATH="${SSH_KEY_PATH}.pub"
 
@@ -171,10 +184,10 @@ case $ACTION in
       export WG_SERVER_PUBKEY=$(echo $WG_SERVER_PRIVKEY | wg pubkey)
       export WG_CLIENT_PRIVKEY=$(wg genkey)
       export WG_CLIENT_PUBKEY=$(echo $WG_CLIENT_PRIVKEY | wg pubkey)
-      echo "export WG_SERVER_PRIVKEY=$WG_SERVER_PRIVKEY" >> $BASE_CONF_PATH
-      echo "export WG_SERVER_PUBKEY=$WG_SERVER_PUBKEY" >> $BASE_CONF_PATH
-      echo "export WG_CLIENT_PRIVKEY=$WG_CLIENT_PRIVKEY" >> $BASE_CONF_PATH
-      echo "export WG_CLIENT_PUBKEY=$WG_CLIENT_PUBKEY" >> $BASE_CONF_PATH
+      cfg_var_set WG_SERVER_PRIVKEY
+      cfg_var_set WG_SERVER_PUBKEY
+      cfg_var_set WG_CLIENT_PRIVKEY
+      cfg_var_set WG_CLIENT_PUBKEY
     fi
 
     echo "Rendering config templates"
@@ -187,6 +200,7 @@ case $ACTION in
   deinit)
     echo "Removing a command shortcut (symlink)..."
     rm -f /usr/local/bin/$SCRIPT_NAME
+    cfg_var_unset SELECTED_SSH_KEY_PATH
     echo "Done! Now you can remove a folder $SCRIPT_DIR_PATH to complete removal."
     ;;
 
