@@ -97,6 +97,40 @@ cfg_var_set()
     cfg_var_unset $VAR_NAME
     echo "export $VAR_NAME='$VAR_VALUE'" >> $BASE_CONF_PATH
 }
+show_status()
+{
+  [[ -n "$SERVER_IP" ]] || { echo -e "\nNetwork is DOWN. Use the 'up' command to setup"; return; }
+
+  OUT=$(ip route get 1.1.1.1)
+  ADDRESS=$(echo $OUT | grep -oP "src \K\d+.\d+.\d+.\d+")
+  INTERFACE=$(echo $OUT | grep -oP "dev \K\w+")
+  NETMASK=$(ifdata -pn $INTERFACE)
+  echo \
+  "
+Network is UP. Set params on your console to connect:
+
+  - IP address: $PS_IP
+  - network mask: $NETMASK
+  - gateway: $ADDRESS
+  - DNS: primary 8.8.8.8, secondary 8.8.4.4
+  - other leave as is
+  "
+
+  echo "Diagnostic info..."
+  PS_STATUS=$(nc -z -w 2 $PS_IP 22 >& /dev/null && echo OK || echo FAIL)
+  SERVER_STATUS=$(nc -z -w 4 $SERVER_IP 22 >& /dev/null && echo OK || echo FAIL)
+  LINK_STATUS=$(ping -c 1 $WG_LINK_SERVER_IP >& /dev/null && echo OK || echo FAIL)
+  timeout 5s tcpdump -c 1 dst host $PS_IP and icmp >& /dev/null &
+  ICMP_REQ_LISTENER_PID=$!
+  CONSOLE_FWD_STATUS=$(ping -c 1 $SERVER_IP >& /dev/null && wait $ICMP_REQ_LISTENER_PID && echo OK || echo FAIL)
+  echo \
+  "
+  Server accessibility...........$SERVER_STATUS
+  Console accessibility..........$PS_STATUS
+  Virtual link...................$LINK_STATUS
+  Traffic forwarding.............$CONSOLE_FWD_STATUS
+  "
+}
 
 case $ACTION in
   up)
@@ -142,6 +176,10 @@ case $ACTION in
     cfg_var_unset SERVER_IP
     ;;
 
+  status)
+    show_status
+    ;;
+
   init)
     [[ -n "$DO_TOKEN" ]] || { echo "DO_TOKEN is not set. Please set and rerun"; exit 1; }
     [[ -n "$PS_IP" ]] || { echo "PS_IP is not set. Please set and rerun"; exit 1; }
@@ -170,8 +208,7 @@ case $ACTION in
     fi
 
     echo "Installing dependencies..."
-    sudo apt install -y wireguard
-    sudo apt install -y jq
+    apt install -y wireguard jq moreutils
 
     echo "Installing a command shortcut (symlink)..."
     rm -f /usr/local/bin/$SCRIPT_NAME
