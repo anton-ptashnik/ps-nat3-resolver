@@ -117,17 +117,22 @@ Network is UP. Set params on your console to connect:
   "
 
   echo "Diagnostic info..."
-  PS_STATUS=$(nc -z -w 2 $PS_IP 22 >& /dev/null && echo OK || echo FAIL)
   SERVER_STATUS=$(nc -z -w 4 $SERVER_IP 22 >& /dev/null && echo OK || echo FAIL)
-  LINK_STATUS=$(ping -c 1 $WG_LINK_SERVER_IP >& /dev/null && echo OK || echo FAIL)
+  PS_STATUS=$(ping -c 1 $PS_IP >& /dev/null && echo OK || echo FAIL)
+  WG_LINK_STATUS=$(ping -c 1 $WG_LINK_SERVER_IP >& /dev/null && echo OK || echo FAIL)
   timeout 5s tcpdump -c 1 dst host $PS_IP and icmp >& /dev/null &
-  ICMP_REQ_LISTENER_PID=$!
-  CONSOLE_FWD_STATUS=$(ping -c 1 $SERVER_IP >& /dev/null && wait $ICMP_REQ_LISTENER_PID && echo OK || echo FAIL)
+  PS_ICMP_LISTENER_PID=$!
+  ping -c 1 $SERVER_IP >& /dev/null
+  SERVER_PING_OK=$?
+  wait $PS_ICMP_LISTENER_PID
+  PS_ICMP_FWD_OK=$?
+  CONSOLE_FWD_STATUS=$([[ $SERVER_PING_OK -eq 0 && $PS_ICMP_FWD_OK -eq 0 ]] && echo OK || echo FAIL)
+
   echo \
   "
   Server accessibility...........$SERVER_STATUS
   Console accessibility..........$PS_STATUS
-  Virtual link...................$LINK_STATUS
+  Virtual link...................$WG_LINK_STATUS
   Traffic forwarding.............$CONSOLE_FWD_STATUS
   "
 }
@@ -209,7 +214,7 @@ case $ACTION in
     fi
 
     echo "Installing dependencies..."
-    apt install -y wireguard jq moreutils
+    apt install -y wireguard jq moreutils tcpdump
 
     echo "Installing a command shortcut (symlink)..."
     rm -f /usr/local/bin/$SCRIPT_NAME
