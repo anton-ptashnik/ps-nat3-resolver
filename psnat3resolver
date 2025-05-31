@@ -97,9 +97,13 @@ cfg_var_set()
     cfg_var_unset $VAR_NAME
     echo "export $VAR_NAME='$VAR_VALUE'" >> $BASE_CONF_PATH
 }
+check_up()
+{
+  [[ -n "$SERVER_IP" ]]
+}
 show_status()
 {
-  [[ -n "$SERVER_IP" ]] || { echo -e "\nNetwork is DOWN. Use the 'up' command to setup"; return; }
+  check_up || { echo -e "\nNetwork is DOWN. Use the 'up' command to setup"; return; }
 
   OUT=$(ip route get 1.1.1.1)
   ADDRESS=$(echo $OUT | grep -oP "src \K\d+.\d+.\d+.\d+")
@@ -139,6 +143,8 @@ Network is UP. Set params on your console to connect:
 
 case $ACTION in
   up)
+    check_up && { echo "Already UP"; exit 0; }
+
     echo "Reserving a server on Digital Ocean..."
     read SSH_KEY_FINGERPRINT <<< $(ssh-keygen -E md5 -lf "${SSH_KEY_PATH}.pub" | awk '{print $2}' | sed 's/^MD5://')
     read DROPLET_ID SERVER_IP <<< "$(do_droplet_create $DROPLET_NAME)"
@@ -172,6 +178,8 @@ case $ACTION in
     ;;
 
   down)
+    check_up || { echo "Already DOWN"; exit 0; }
+    
     echo "Deactivating a virtual link..."
     wg-quick down wg0 >& /dev/null
 
@@ -187,6 +195,8 @@ case $ACTION in
     ;;
 
   init)
+    check_up && { echo "Network is UP. Make it DOWN before init"; exit 1; }
+
     [[ -n "$DO_TOKEN" ]] || { echo "DO_TOKEN is not set. Please set and rerun"; exit 1; }
     [[ -n "$PS_IP" ]] || { echo "PS_IP is not set. Please set and rerun"; exit 1; }
 
@@ -241,6 +251,8 @@ case $ACTION in
     ;;
 
   deinit)
+    check_up && { echo "Network is UP. Make it DOWN before deinit"; exit 1; }
+    
     echo "Removing a command shortcut (symlink)..."
     rm -f /usr/local/bin/$SCRIPT_NAME
     cfg_var_unset SELECTED_SSH_KEY_PATH
