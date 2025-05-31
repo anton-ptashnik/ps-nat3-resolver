@@ -129,6 +129,10 @@ Setups the network, which includes: reserving a server, establishing a virtual l
 
 Cleanups the network, which includes the opposite: releasing a server and removing network config done by `up` command. Note it is the moment when you stop to pay for a server since the server is released now
 
+- sudo psnat3resolver status
+
+Shows network status and params to set on a console. Additionally performs network diagnostics and reports result
+
 - sudo psnat3resolver init
 
 Call this before the first script usage and after updating any values in `config/user.conf`. The command prepares network config files based on `config/user.conf`, installs required dependencies and setups a script shortcut (symlink) to call the script from any location

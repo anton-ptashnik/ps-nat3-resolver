@@ -22,15 +22,16 @@ SSH_KEY_PATH=$SELECTED_SSH_KEY_PATH
 ACTION=$1
 
 usage() {
-    echo "Usage: sudo $0 up|down"
+    echo "Usage: sudo $SCRIPT_NAME up|down"
     echo
     echo "Note init is required before the first usage!"
     echo
     echo "Commands:"
-    echo "  sudo $0 up - setup network"
-    echo "  sudo $0 down - cleanup network"
-    echo "  sudo $0 init - prepare the script for work"
-    echo "  sudo $0 deinit - prepare for script removal"
+    echo "  sudo $SCRIPT_NAME up - setup network"
+    echo "  sudo $SCRIPT_NAME down - cleanup network"
+    echo "  sudo $SCRIPT_NAME status - show network status and connection params"
+    echo "  sudo $SCRIPT_NAME init - prepare the script for work"
+    echo "  sudo $SCRIPT_NAME deinit - prepare for script removal"
     exit 1
 }
 do_droplet_create ()
