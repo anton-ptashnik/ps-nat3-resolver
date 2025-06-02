@@ -21,18 +21,27 @@ SSH_KEY_PATH=$SELECTED_SSH_KEY_PATH
 
 ACTION=$1
 
-usage() {
-    echo "Usage: sudo $SCRIPT_NAME up|down"
-    echo
-    echo "Note init is required before the first usage!"
-    echo
-    echo "Commands:"
-    echo "  sudo $SCRIPT_NAME up - setup network"
-    echo "  sudo $SCRIPT_NAME down - cleanup network"
-    echo "  sudo $SCRIPT_NAME status - show network status and connection params"
-    echo "  sudo $SCRIPT_NAME init - prepare the script for work"
-    echo "  sudo $SCRIPT_NAME deinit - prepare for script removal"
-    exit 1
+log()
+{
+  echo "$1" | tee /dev/fd/3
+}
+
+usage()
+{
+  log \
+  "
+Usage: sudo $SCRIPT_NAME up|down
+
+Note init is required before the first usage!
+
+Commands:
+  sudo $SCRIPT_NAME up - setup network
+  sudo $SCRIPT_NAME down - cleanup network
+  sudo $SCRIPT_NAME status - show network status and connection params
+  sudo $SCRIPT_NAME init - prepare the script for work
+  sudo $SCRIPT_NAME deinit - prepare for script removal
+  "
+  exit 1
 }
 do_droplet_create ()
 {
@@ -84,7 +93,7 @@ do_sshkey_whitelist ()
     -H "Content-Type: application/json" \
     -H "Authorization: Bearer $DO_TOKEN" \
     -d "{\"name\":\"droplet-key\",\"public_key\":\"$SSH_PUBKEY\"}" \
-    "https://api.digitalocean.com/v2/account/keys" >& /dev/null
+    "https://api.digitalocean.com/v2/account/keys"
 }
 cfg_var_unset()
 {
@@ -104,13 +113,13 @@ check_up()
 }
 show_status()
 {
-  check_up || { echo -e "\nNetwork is DOWN. Use the 'up' command to setup"; return; }
+  check_up || { log "Network is DOWN. Use the 'up' command to setup"; return; }
 
   OUT=$(ip route get 1.1.1.1)
   ADDRESS=$(echo $OUT | grep -oP "src \K\d+.\d+.\d+.\d+")
   INTERFACE=$(echo $OUT | grep -oP "dev \K\w+")
   NETMASK=$(ifdata -pn $INTERFACE)
-  echo \
+  log \
   "
 Network is UP. Set params on your console to connect:
 
@@ -121,19 +130,17 @@ Network is UP. Set params on your console to connect:
   - other leave as is
   "
 
-  echo "Diagnostic info..."
-  SERVER_STATUS=$(nc -z -w 4 $SERVER_IP 22 >& /dev/null && echo OK || echo FAIL)
-  PS_STATUS=$(ping -c 1 $PS_IP >& /dev/null && echo OK || echo FAIL)
-  WG_LINK_STATUS=$(ping -c 1 $WG_LINK_SERVER_IP >& /dev/null && echo OK || echo FAIL)
-  timeout 5s tcpdump -c 1 dst host $PS_IP and icmp >& /dev/null &
+  log "Diagnostic info..."
+  nc -z -w 4 $SERVER_IP 22 && SERVER_STATUS=OK || SERVER_STATUS=FAIL
+  ping -c 1 $PS_IP && PS_STATUS=OK || PS_STATUS=FAIL
+  ping -c 1 $WG_LINK_SERVER_IP && WG_LINK_STATUS=OK || WG_LINK_STATUS=FAIL
+  timeout 5s tcpdump -n -c 1 src host $PS_IP and icmp &
   PS_ICMP_LISTENER_PID=$!
-  ping -c 1 $SERVER_IP >& /dev/null
-  SERVER_PING_OK=$?
-  wait $PS_ICMP_LISTENER_PID
-  PS_ICMP_FWD_OK=$?
-  CONSOLE_FWD_STATUS=$([[ $SERVER_PING_OK -eq 0 && $PS_ICMP_FWD_OK -eq 0 ]] && echo OK || echo FAIL)
+  ping -c 1 $SERVER_IP && SERVER_PING_OK=0 || SERVER_PING_OK=1
+  wait $PS_ICMP_LISTENER_PID && PS_ICMP_FWD_OK=0 || PS_ICMP_FWD_OK=1
+  [[ $SERVER_PING_OK -eq 0 && $PS_ICMP_FWD_OK -eq 0 ]] && CONSOLE_FWD_STATUS=OK || CONSOLE_FWD_STATUS=FAIL
 
-  echo \
+  log \
   "
   Server accessibility...........$SERVER_STATUS
   Console accessibility..........$PS_STATUS
@@ -142,49 +149,54 @@ Network is UP. Set params on your console to connect:
   "
 }
 
+exec 3>&1
+exec >> $SCRIPT_DIR_PATH/debug.log 2>&1
+
+echo -e "\ncall - $0 $@"
+
 case $ACTION in
   up)
-    check_up && { echo "Already UP"; exit 0; }
+    check_up && { log "Already UP"; exit 0; }
 
-    echo "Reserving a server on Digital Ocean..."
+    log "Reserving a server on Digital Ocean..."
     read SSH_KEY_FINGERPRINT <<< $(ssh-keygen -E md5 -lf "${SSH_KEY_PATH}.pub" | awk '{print $2}' | sed 's/^MD5://')
     read DROPLET_ID SERVER_IP <<< "$(do_droplet_create $DROPLET_NAME)"
     cfg_var_set SERVER_IP
     cfg_var_set DROPLET_ID
 
-    echo "Waiting for the server to become accessible..."
+    log "Waiting for the server to become accessible..."
     export SERVER_IP
     export SSH_KEY_PATH
     timeout 50 sh -c '
-      until ssh -i $SSH_KEY_PATH -o StrictHostKeyChecking=no root@$SERVER_IP "echo"; do
+      until ssh -i $SSH_KEY_PATH -o StrictHostKeyChecking=no root@$SERVER_IP "uptime"; do
         sleep 5
       done
-    ' >& /dev/null
+    '
 
-    echo "Setting up a virtual link on the server..."
-    timeout 50 ssh -i $SSH_KEY_PATH root@$SERVER_IP "DEBIAN_FRONTEND=noninteractive apt-get update" >& /dev/null || true
+    log "Setting up a virtual link on the server..."
+    timeout 50 ssh -i $SSH_KEY_PATH root@$SERVER_IP "DEBIAN_FRONTEND=noninteractive apt-get update" || true
     timeout 80 sh -c '
       until ssh -i $SSH_KEY_PATH root@$SERVER_IP "apt-get install -y wireguard"; do
         sleep 10
       done
-    ' >& /dev/null
-    scp -i $SSH_KEY_PATH $CONF_DIR_PATH/wg0-server.conf root@$SERVER_IP:/etc/wireguard/wg0.conf >& /dev/null
+    '
+    scp -i $SSH_KEY_PATH $CONF_DIR_PATH/wg0-server.conf root@$SERVER_IP:/etc/wireguard/wg0.conf
 
-    echo "Setting up a virtual link on the client (this machine)..."
+    log "Setting up a virtual link on the client (this machine)..."
     envsubst < $CONF_DIR_PATH/wg0-client.conf > /etc/wireguard/wg0.conf
 
-    echo "Activating a virtual link..."
-    ssh -i $SSH_KEY_PATH root@$SERVER_IP "wg-quick up wg0" >& /dev/null
-    wg-quick up wg0 >& /dev/null
+    log "Activating a virtual link..."
+    ssh -i $SSH_KEY_PATH root@$SERVER_IP "wg-quick up wg0"
+    wg-quick up wg0
     ;;
 
   down)
-    check_up || { echo "Already DOWN"; exit 0; }
+    check_up || { log "Already DOWN"; exit 0; }
     
-    echo "Deactivating a virtual link..."
-    wg-quick down wg0 >& /dev/null
+    log "Deactivating a virtual link..."
+    wg-quick down wg0
 
-    echo "Releasing the reserved server..."
+    log "Releasing the reserved server..."
     do_droplet_remove "$DROPLET_ID"
 
     cfg_var_unset DROPLET_ID
@@ -196,18 +208,18 @@ case $ACTION in
     ;;
 
   init)
-    check_up && { echo "Network is UP. Make it DOWN before init"; exit 1; }
+    check_up && { log "Network is UP. Make it DOWN before init"; exit 1; }
 
-    [[ -n "$DO_TOKEN" ]] || { echo "DO_TOKEN is not set. Please set and rerun"; exit 1; }
-    [[ -n "$PS_IP" ]] || { echo "PS_IP is not set. Please set and rerun"; exit 1; }
+    [[ -n "$DO_TOKEN" ]] || { log "DO_TOKEN is not set. Please set and rerun"; exit 1; }
+    [[ -n "$PS_IP" ]] || { log "PS_IP is not set. Please set and rerun"; exit 1; }
 
     if [[ -n "$USER_SSH_KEY_PATH" ]]; then
-        [[ -f "$USER_SSH_KEY_PATH"  ]] || { echo "SSH key not found at $USER_SSH_KEY_PATH. Please fix SSH_KEY_PATH and rerun"; exit 1; }
+        [[ -f "$USER_SSH_KEY_PATH"  ]] || { log "SSH key not found at $USER_SSH_KEY_PATH. Please fix SSH_KEY_PATH and rerun"; exit 1; }
         SELECTED_SSH_KEY_PATH=$USER_SSH_KEY_PATH
     else
-      echo "SSH_KEY_PATH is not set. Using a default SSH key"
+      log "SSH_KEY_PATH is not set. Using a default SSH key"
       if [[ ! -f "$DEFAULT_SSH_KEY_PATH" ]]; then
-        echo "Default SSH key is missing. Creating a key..."
+        log "Default SSH key is missing. Creating a key..."
         ssh-keygen -t ed25519 -N "" -f $DEFAULT_SSH_KEY_PATH -C "digital-ocean"
       fi
       SELECTED_SSH_KEY_PATH=$DEFAULT_SSH_KEY_PATH
@@ -217,23 +229,23 @@ case $ACTION in
 
     SSH_PUBKEY_PATH="${SSH_KEY_PATH}.pub"
 
-    echo "Checking if the SSH key is whitelisted on Digital Ocean..."
+    log "Checking if the SSH key is whitelisted on Digital Ocean..."
     read SSH_KEY_FINGERPRINT <<< $(ssh-keygen -E md5 -lf "${SSH_KEY_PATH}.pub" | awk '{print $2}' | sed 's/^MD5://')
     if ! do_sshkey_check_whitelisted "$SSH_KEY_FINGERPRINT"; then
-       echo "New SSH key. Whitelisting the key on Digital Ocean..."
+       log "New SSH key. Whitelisting the key on Digital Ocean..."
        do_sshkey_whitelist "$SSH_PUBKEY_PATH"
     fi
 
-    echo "Installing dependencies..."
+    log "Installing dependencies..."
     apt install -y wireguard jq moreutils tcpdump
 
-    echo "Installing a command shortcut (symlink)..."
+    log "Installing a command shortcut (symlink)..."
     rm -f /usr/local/bin/$SCRIPT_NAME
     ln -s $SCRIPT_DIR_PATH/$SCRIPT_NAME /usr/local/bin/$SCRIPT_NAME
 
-    echo "Checking WG keys presence"
+    log "Checking WG keys presence"
     if [[ ! -n "$WG_SERVER_PUBKEY" ]]; then
-      echo "WG keys missing. Generating new keys..."
+      log "WG keys missing. Generating new keys..."
       export WG_SERVER_PRIVKEY=$(wg genkey)
       export WG_SERVER_PUBKEY=$(echo $WG_SERVER_PRIVKEY | wg pubkey)
       export WG_CLIENT_PRIVKEY=$(wg genkey)
@@ -244,7 +256,7 @@ case $ACTION in
       cfg_var_set WG_CLIENT_PUBKEY
     fi
 
-    echo "Rendering config templates"
+    log "Rendering config templates"
     export PS_IP
     export SERVER_IP='$SERVER_IP'
     envsubst < $CONF_DIR_PATH/wg0-client-template.conf > $CONF_DIR_PATH/wg0-client.conf
@@ -252,12 +264,12 @@ case $ACTION in
     ;;
 
   deinit)
-    check_up && { echo "Network is UP. Make it DOWN before deinit"; exit 1; }
+    check_up && { log "Network is UP. Make it DOWN before deinit"; exit 1; }
     
-    echo "Removing a command shortcut (symlink)..."
+    log "Removing a command shortcut (symlink)..."
     rm -f /usr/local/bin/$SCRIPT_NAME
     cfg_var_unset SELECTED_SSH_KEY_PATH
-    echo "Done! Now you can remove a folder $SCRIPT_DIR_PATH to complete removal."
+    log "Done! Now you can remove a folder $SCRIPT_DIR_PATH to complete removal."
     ;;
 
   *)
