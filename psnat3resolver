@@ -174,9 +174,9 @@ case $ACTION in
     '
 
     log "Setting up a virtual link on the server..."
-    timeout 50 ssh -i $SSH_KEY_PATH root@$SERVER_IP "DEBIAN_FRONTEND=noninteractive apt-get update" || true
-    timeout 80 sh -c '
+    timeout 180 sh -c '
       until ssh -i $SSH_KEY_PATH root@$SERVER_IP "apt-get install -y wireguard"; do
+        ssh -i $SSH_KEY_PATH root@$SERVER_IP "DEBIAN_FRONTEND=noninteractive apt-get update" || true
         sleep 10
       done
     '
