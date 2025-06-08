@@ -71,19 +71,6 @@ Go to Digital Ocean, create an account and add billing info. Then go to API menu
 
 Make a note of the generated token for later.
 
-- new network profile on a console
-
-Go to Settings->Network on a console and then Set up a new connection, select Manual/Advanced mode which allows to specify params like address, gateway and DNS. Enter the params as below:
-```
-- name: any, like "My multiplayer net"
-- IP address and network mask: same as the console had previously
-- gateway: address of your Linux PC
-- DNS: primary 8.8.8.8, secondary 8.8.4.4
-- other leave as is
-```
-
-Save. No connection is expected for now until the script starts.
-
 ## Installation
 
 Download the latest version of the script as ZIP from [Releases](https://github.com/anton-ptashnik/ps-nat3-resolver/releases/latest) to your Linux PC and unpack to any location. Once downloaded you need to fill params in a file `config/user.conf` before the first usage. The file looks as below:
@@ -142,7 +129,9 @@ Call this before the first script usage and after updating any values in `config
 Call this before script removal, then remove a folder containing the script to complete removal.
 The command does the opposite to `init`
 
-After doing `up` command check Internet connection on a console. Go to Settings->Network->Test connection, then after a few sec it should show NAT type 2. Multiplayer should work now, enjoy playing!
+Use `up` command to make the script setup a network, then follow script output to complete the setup. You will be asked to update console network params to start passing console traffic via a network the script configured. One may modify existing connection params on a console but better to create a separate profile and switch between them when needed.
+
+Go to `Settings->Network` on a console and then `Set up a new connection` to create a new network profile, select `Manual/Advanced mode` which allows to specify params like address, gateway and DNS. Enter the params provided in script output for `up` command. Once done, check Internet connection on a console - `Settings->Network->Test connection`, after a few sec it should show NAT type 2. Multiplayer should work now, enjoy playing!
 
 ## Recommendations
 

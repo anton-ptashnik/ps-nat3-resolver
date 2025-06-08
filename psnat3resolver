@@ -129,7 +129,9 @@ Network is UP. Set params on your console to connect:
   - DNS: primary 8.8.8.8, secondary 8.8.4.4
   - other leave as is
   "
-
+}
+show_diagnostics()
+{
   log "Diagnostic info..."
   nc -z -w 4 $SERVER_IP 22 && SERVER_STATUS=OK || SERVER_STATUS=FAIL
   ping -c 1 $PS_IP && PS_STATUS=OK || PS_STATUS=FAIL
@@ -147,6 +149,12 @@ Network is UP. Set params on your console to connect:
   Virtual link...................$WG_LINK_STATUS
   Traffic forwarding.............$CONSOLE_FWD_STATUS
   "
+
+  ALL_OK=y
+  for var in SERVER_STATUS PS_STATUS WG_LINK_STATUS CONSOLE_FWD_STATUS; do
+    [[ "${!var}" == "FAIL" ]] && ALL_OK=f
+  done
+  [[ "$ALL_OK" == "y" ]]
 }
 
 exec 3>&1
@@ -188,6 +196,10 @@ case $ACTION in
     log "Activating a virtual link..."
     ssh -i $SSH_KEY_PATH root@$SERVER_IP "wg-quick up wg0"
     wg-quick up wg0
+
+    log "Done!"
+    show_status
+    log "Once a console is setup run 'status' command to verify setup completeness"
     ;;
 
   down)
@@ -201,10 +213,17 @@ case $ACTION in
 
     cfg_var_unset DROPLET_ID
     cfg_var_unset SERVER_IP
+
+    log "Done!"
     ;;
 
   status)
     show_status
+    if ! show_diagnostics; then
+      log "Some checks failed. Make sure your console is on and the settings above applied, then rerun 'status' command"
+    else
+      log "All checks passed, enjoy playing!"
+    fi
     ;;
 
   init)
@@ -261,6 +280,8 @@ case $ACTION in
     export SERVER_IP='$SERVER_IP'
     envsubst < $CONF_DIR_PATH/wg0-client-template.conf > $CONF_DIR_PATH/wg0-client.conf
     envsubst < $CONF_DIR_PATH/wg0-server-template.conf > $CONF_DIR_PATH/wg0-server.conf
+    
+    log "Done!"
     ;;
 
   deinit)
@@ -269,6 +290,7 @@ case $ACTION in
     log "Removing a command shortcut (symlink)..."
     rm -f /usr/local/bin/$SCRIPT_NAME
     cfg_var_unset SELECTED_SSH_KEY_PATH
+    
     log "Done! Now you can remove a folder $SCRIPT_DIR_PATH to complete removal."
     ;;
 
