@@ -113,7 +113,7 @@ check_up()
 }
 show_status()
 {
-  check_up || { log "Network is DOWN. Use the 'up' command to setup"; return; }
+  check_up || { log "Network is DOWN. Use the 'up' command to setup"; return 1; }
 
   OUT=$(ip route get 1.1.1.1)
   ADDRESS=$(echo $OUT | grep -oP "src \K\d+.\d+.\d+.\d+")
@@ -194,8 +194,8 @@ case $ACTION in
     envsubst < $CONF_DIR_PATH/wg0-client.conf > /etc/wireguard/wg0.conf
 
     log "Activating a virtual link..."
-    ssh -i $SSH_KEY_PATH root@$SERVER_IP "wg-quick up wg0"
-    wg-quick up wg0
+    ssh -i $SSH_KEY_PATH root@$SERVER_IP "wg-quick up wg0 && systemctl enable wg-quick@wg0"
+    systemctl start wg-quick@wg0 && systemctl enable wg-quick@wg0
 
     log "Done!"
     show_status
@@ -206,7 +206,7 @@ case $ACTION in
     check_up || { log "Already DOWN"; exit 0; }
     
     log "Deactivating a virtual link..."
-    wg-quick down wg0
+    systemctl disable wg-quick@wg0 && systemctl stop wg-quick@wg0
 
     log "Releasing the reserved server..."
     do_droplet_remove "$DROPLET_ID"
@@ -218,7 +218,7 @@ case $ACTION in
     ;;
 
   status)
-    show_status
+    show_status || exit 0
     if ! show_diagnostics; then
       log "Some checks failed. Make sure your console is on and the settings above applied, then rerun 'status' command"
     else
