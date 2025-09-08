@@ -39,7 +39,6 @@ Commands:
   sudo $SCRIPT_NAME down - cleanup network
   sudo $SCRIPT_NAME status - show network status and connection params
   sudo $SCRIPT_NAME init - prepare the script for work
-  sudo $SCRIPT_NAME deinit - prepare for script removal
   "
   exit 1
 }
@@ -232,20 +231,6 @@ case $ACTION in
     [[ -n "$DO_TOKEN" ]] || { log "DO_TOKEN is not set. Please set and rerun"; exit 1; }
     [[ -n "$PS_IP" ]] || { log "PS_IP is not set. Please set and rerun"; exit 1; }
 
-    if [[ -n "$USER_SSH_KEY_PATH" ]]; then
-        [[ -f "$USER_SSH_KEY_PATH"  ]] || { log "SSH key not found at $USER_SSH_KEY_PATH. Please fix SSH_KEY_PATH and rerun"; exit 1; }
-        SELECTED_SSH_KEY_PATH=$USER_SSH_KEY_PATH
-    else
-      log "SSH_KEY_PATH is not set. Using a default SSH key"
-      if [[ ! -f "$DEFAULT_SSH_KEY_PATH" ]]; then
-        log "Default SSH key is missing. Creating a key..."
-        ssh-keygen -t ed25519 -N "" -f $DEFAULT_SSH_KEY_PATH -C "digital-ocean"
-      fi
-      SELECTED_SSH_KEY_PATH=$DEFAULT_SSH_KEY_PATH
-    fi
-    cfg_var_set SELECTED_SSH_KEY_PATH
-    SSH_KEY_PATH=$SELECTED_SSH_KEY_PATH
-
     SSH_PUBKEY_PATH="${SSH_KEY_PATH}.pub"
 
     log "Checking if the SSH key is whitelisted on Digital Ocean..."
@@ -255,26 +240,6 @@ case $ACTION in
        do_sshkey_whitelist "$SSH_PUBKEY_PATH"
     fi
 
-    log "Installing dependencies..."
-    apt install -y wireguard jq moreutils tcpdump
-
-    log "Installing a command shortcut (symlink)..."
-    rm -f /usr/local/bin/$SCRIPT_NAME
-    ln -s $SCRIPT_DIR_PATH/$SCRIPT_NAME /usr/local/bin/$SCRIPT_NAME
-
-    log "Checking WG keys presence"
-    if [[ ! -n "$WG_SERVER_PUBKEY" ]]; then
-      log "WG keys missing. Generating new keys..."
-      export WG_SERVER_PRIVKEY=$(wg genkey)
-      export WG_SERVER_PUBKEY=$(echo $WG_SERVER_PRIVKEY | wg pubkey)
-      export WG_CLIENT_PRIVKEY=$(wg genkey)
-      export WG_CLIENT_PUBKEY=$(echo $WG_CLIENT_PRIVKEY | wg pubkey)
-      cfg_var_set WG_SERVER_PRIVKEY
-      cfg_var_set WG_SERVER_PUBKEY
-      cfg_var_set WG_CLIENT_PRIVKEY
-      cfg_var_set WG_CLIENT_PUBKEY
-    fi
-
     log "Rendering config templates"
     export PS_IP
     export SERVER_IP='$SERVER_IP'
@@ -282,16 +247,6 @@ case $ACTION in
     envsubst < $CONF_DIR_PATH/wg0-server-template.conf > $CONF_DIR_PATH/wg0-server.conf
     
     log "Done!"
-    ;;
-
-  deinit)
-    check_up && { log "Network is UP. Make it DOWN before deinit"; exit 1; }
-    
-    log "Removing a command shortcut (symlink)..."
-    rm -f /usr/local/bin/$SCRIPT_NAME
-    cfg_var_unset SELECTED_SSH_KEY_PATH
-    
-    log "Done! Now you can remove a folder $SCRIPT_DIR_PATH to complete removal."
     ;;
 
   *)

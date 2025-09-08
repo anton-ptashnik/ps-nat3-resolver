@@ -73,7 +73,14 @@ Make a note of the generated token for later.
 
 ## Installation
 
-Download the latest version of the script as ZIP from [Releases](https://github.com/anton-ptashnik/ps-nat3-resolver/releases/latest) to your Linux PC and unpack to any location. Once downloaded you need to fill params in a file `config/user.conf` before the first usage. The file looks as below:
+Download the latest version of the script as ZIP from [Releases](https://github.com/anton-ptashnik/ps-nat3-resolver/releases/latest) to your Linux PC and unpack to any location. Use install script for installation:
+
+```
+chmod +x ./install.sh
+sudo ./install.sh
+```
+
+Once installed you need to fill params in a file `config/user.conf` before the first usage. The file looks as below:
 
 ```
 # REQUIRED param
@@ -97,12 +104,19 @@ Note that the script is a CLI application (non-GUI) so it should be run from a T
 
 ```
 cd <path-to-script-folder>
-sudo ./psnat3resolver init
+sudo psnat3resolver init
 ```
 
 Where `<path-to-script-folder>` is a placeholder for an actual path to a script folder.
 
 Once `init` is done the script is ready for work. Now all commands can be run as provided in `Usage`, without a preceding `cd` command and `./` before the script name.
+
+To uninstall use the corresponding script:
+
+```
+chmod +x ./uninstall.sh
+sudo ./uninstall.sh
+```
 
 ## Usage
 
@@ -123,11 +137,6 @@ Shows network status and params to set on a console. Additionally performs netwo
 - sudo psnat3resolver init
 
 Call this before the first script usage and after updating any values in `config/user.conf`. The command prepares network config files based on `config/user.conf`, installs required dependencies and setups a script shortcut (symlink) to call the script from any location
-
-- sudo psnat3resolver deinit
-
-Call this before script removal, then remove a folder containing the script to complete removal.
-The command does the opposite to `init`
 
 Use `up` command to make the script setup a network, then follow script output to complete the setup. You will be asked to update console network params to start passing console traffic via a network the script configured. One may modify existing connection params on a console but better to create a separate profile and switch between them when needed.
 
