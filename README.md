@@ -92,24 +92,16 @@ DO_TOKEN=''
 # IP address of your console. Find it in console Settings->Network->View connection info
 # Put your value in between quotes
 PS_IP=''
-
-# OPTIONAL param
-# SSH key for server setup. Put your own if available or leave as is to autogenerate
-SSH_KEY_PATH=''
 ```
 
-Parameters the script cannot work without are marked as REQUIRED, others are OPTIONAL and can be left empty. Fill params, close the file and run the command below to apply changes.
+Parameters the script cannot work without are marked as REQUIRED, others are OPTIONAL and can be left empty. Once parameters are filled the script is ready for work. Now all commands can be run as provided in `Usage`, without a preceding `cd` command and `./` before the script name.
 
-Note that the script is a CLI application (non-GUI) so it should be run from a Terminal window. Find and open a Terminal app then run the script specifying a needed command, `init` in this case:
+Note that the script is a CLI application (non-GUI) so it should be run from a Terminal window. Find and open a Terminal app then run the script specifying a needed command, for instance `up`:
 
 ```
 cd <path-to-script-folder>
-sudo psnat3resolver init
+sudo psnat3resolver up
 ```
-
-Where `<path-to-script-folder>` is a placeholder for an actual path to a script folder.
-
-Once `init` is done the script is ready for work. Now all commands can be run as provided in `Usage`, without a preceding `cd` command and `./` before the script name.
 
 To uninstall use the corresponding script:
 
@@ -133,10 +125,6 @@ Cleanups the network, which includes the opposite: releasing a server and removi
 - sudo psnat3resolver status
 
 Shows network status and params to set on a console. Additionally performs network diagnostics and reports result
-
-- sudo psnat3resolver init
-
-Call this before the first script usage and after updating any values in `config/user.conf`. The command prepares network config files based on `config/user.conf`, installs required dependencies and setups a script shortcut (symlink) to call the script from any location
 
 Use `up` command to make the script setup a network, then follow script output to complete the setup. You will be asked to update console network params to start passing console traffic via a network the script configured. One may modify existing connection params on a console but better to create a separate profile and switch between them when needed.
 

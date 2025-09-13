@@ -16,8 +16,6 @@ USER_CONF_PATH=$CONF_DIR_PATH/user.conf
 
 source $BASE_CONF_PATH
 source $USER_CONF_PATH
-USER_SSH_KEY_PATH=$SSH_KEY_PATH
-SSH_KEY_PATH=$SELECTED_SSH_KEY_PATH
 
 ACTION=$1
 
@@ -32,13 +30,10 @@ usage()
   "
 Usage: sudo $SCRIPT_NAME up|down
 
-Note init is required before the first usage!
-
 Commands:
   sudo $SCRIPT_NAME up - setup network
   sudo $SCRIPT_NAME down - cleanup network
   sudo $SCRIPT_NAME status - show network status and connection params
-  sudo $SCRIPT_NAME init - prepare the script for work
   "
   exit 1
 }
@@ -165,8 +160,18 @@ case $ACTION in
   up)
     check_up && { log "Already UP"; exit 0; }
 
-    log "Reserving a server on Digital Ocean..."
+    [[ -n "$DO_TOKEN" ]] || { log "DO_TOKEN is not set. Please set and rerun"; exit 1; }
+    [[ -n "$PS_IP" ]] || { log "PS_IP is not set. Please set and rerun"; exit 1; }
+
+    log "Checking if a local SSH key is whitelisted on Digital Ocean..."
     read SSH_KEY_FINGERPRINT <<< $(ssh-keygen -E md5 -lf "${SSH_KEY_PATH}.pub" | awk '{print $2}' | sed 's/^MD5://')
+    SSH_PUBKEY_PATH="${SSH_KEY_PATH}.pub"
+    if ! do_sshkey_check_whitelisted "$SSH_KEY_FINGERPRINT"; then
+       log "New SSH key. Whitelisting the key on Digital Ocean..."
+       do_sshkey_whitelist "$SSH_PUBKEY_PATH"
+    fi
+
+    log "Reserving a server on Digital Ocean..."
     read DROPLET_ID SERVER_IP <<< "$(do_droplet_create $DROPLET_NAME)"
     cfg_var_set SERVER_IP
     cfg_var_set DROPLET_ID
@@ -180,6 +185,11 @@ case $ACTION in
       done
     '
 
+    log "Rendering virtual link config files..."
+    export PS_IP
+    envsubst < $CONF_DIR_PATH/wg0-client-template.conf > $CONF_DIR_PATH/wg0-client.conf
+    envsubst < $CONF_DIR_PATH/wg0-server-template.conf > $CONF_DIR_PATH/wg0-server.conf
+
     log "Setting up a virtual link on the server..."
     timeout 180 sh -c '
       until ssh -i $SSH_KEY_PATH root@$SERVER_IP "apt-get install -y wireguard"; do
@@ -190,7 +200,7 @@ case $ACTION in
     scp -i $SSH_KEY_PATH $CONF_DIR_PATH/wg0-server.conf root@$SERVER_IP:/etc/wireguard/wg0.conf
 
     log "Setting up a virtual link on the client (this machine)..."
-    envsubst < $CONF_DIR_PATH/wg0-client.conf > /etc/wireguard/wg0.conf
+    cp $CONF_DIR_PATH/wg0-client.conf /etc/wireguard/wg0.conf
 
     log "Activating a virtual link..."
     ssh -i $SSH_KEY_PATH root@$SERVER_IP "wg-quick up wg0 && systemctl enable wg-quick@wg0"
@@ -203,6 +213,8 @@ case $ACTION in
 
   down)
     check_up || { log "Already DOWN"; exit 0; }
+
+    [[ -n "$DO_TOKEN" ]] || { log "DO_TOKEN is not set. Please set and rerun"; exit 1; }
     
     log "Deactivating a virtual link..."
     systemctl disable wg-quick@wg0 && systemctl stop wg-quick@wg0
@@ -223,30 +235,6 @@ case $ACTION in
     else
       log "All checks passed, enjoy playing!"
     fi
-    ;;
-
-  init)
-    check_up && { log "Network is UP. Make it DOWN before init"; exit 1; }
-
-    [[ -n "$DO_TOKEN" ]] || { log "DO_TOKEN is not set. Please set and rerun"; exit 1; }
-    [[ -n "$PS_IP" ]] || { log "PS_IP is not set. Please set and rerun"; exit 1; }
-
-    SSH_PUBKEY_PATH="${SSH_KEY_PATH}.pub"
-
-    log "Checking if the SSH key is whitelisted on Digital Ocean..."
-    read SSH_KEY_FINGERPRINT <<< $(ssh-keygen -E md5 -lf "${SSH_KEY_PATH}.pub" | awk '{print $2}' | sed 's/^MD5://')
-    if ! do_sshkey_check_whitelisted "$SSH_KEY_FINGERPRINT"; then
-       log "New SSH key. Whitelisting the key on Digital Ocean..."
-       do_sshkey_whitelist "$SSH_PUBKEY_PATH"
-    fi
-
-    log "Rendering config templates"
-    export PS_IP
-    export SERVER_IP='$SERVER_IP'
-    envsubst < $CONF_DIR_PATH/wg0-client-template.conf > $CONF_DIR_PATH/wg0-client.conf
-    envsubst < $CONF_DIR_PATH/wg0-server-template.conf > $CONF_DIR_PATH/wg0-server.conf
-    
-    log "Done!"
     ;;
 
   *)
