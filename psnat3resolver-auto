@@ -1,0 +1,76 @@
+#!/bin/bash
+
+set -e
+
+if [ "$EUID" -ne 0 ]; then
+  echo "Please run as root. The script requires root for network setup"
+  exit 1
+fi
+
+REAL_PATH=$(realpath "$0")
+SCRIPT_NAME=psnat3resolver
+SCRIPT_DIR_PATH=$(dirname "$REAL_PATH")
+
+ACTION=$1
+
+exec 3>&1
+exec >> $SCRIPT_DIR_PATH/debug.log 2>&1
+log()
+{
+  echo "$1" | tee >&3
+}
+
+usage()
+{
+  log \
+  "
+PS NAT3 Resolver, mode: auto
+Usage: sudo $SCRIPT_NAME up|down
+
+Commands:
+  sudo $SCRIPT_NAME up - start monitoring, up/down network automatically based on PS network activity
+  sudo $SCRIPT_NAME down - stop monitoring
+  sudo $SCRIPT_NAME status - show network status
+  sudo $SCRIPT_NAME manual - switch to manual mode
+  "
+  exit 1
+}
+
+check_up()
+{
+  systemctl is-enabled --quiet psnat3resolverd
+}
+show_status()
+{
+  check_up && log "Monitoring is UP" || log "Monitoring is DOWN. Use the 'up' command to activate"
+  exec 1>&3 2>&3
+  eval "$SCRIPT_DIR_PATH/psnat3resolver status"
+}
+
+echo -e "\ncall - $0 $@"
+
+case $ACTION in
+  up)
+    check_up && { log "Already UP"; exit 0; }
+    systemctl enable psnat3resolverd
+    systemctl start psnat3resolverd
+    ;;
+
+  down)
+    check_up || { log "Already DOWN"; exit 0; }
+    systemctl disable psnat3resolverd
+    systemctl stop psnat3resolverd
+    ;;
+
+  status)
+    show_status
+    ;;
+
+  manual)
+    ln -sf "$SCRIPT_DIR_PATH/psnat3resolver" /usr/local/bin/$SCRIPT_NAME
+    ;;
+  
+  *)
+    usage
+    ;;
+esac

@@ -83,18 +83,16 @@ sudo ./install.sh
 Once installed you need to fill params in a file `config/user.conf` before the first usage. The file looks as below:
 
 ```
-# REQUIRED param
 # Digital Ocean API token used to let the script reserve/release a server
 # Put your value in between quotes
 DO_TOKEN=''
 
-# REQUIRED param
 # IP address of your console. Find it in console Settings->Network->View connection info
 # Put your value in between quotes
 PS_IP=''
 ```
 
-Parameters the script cannot work without are marked as REQUIRED, others are OPTIONAL and can be left empty. Once parameters are filled the script is ready for work. Now all commands can be run as provided in `Usage`, without a preceding `cd` command and `./` before the script name.
+Once parameters are filled the script is ready for work. Now all commands can be run as provided in `Usage`, without a preceding `cd` command and `./` before the script name.
 
 Note that the script is a CLI application (non-GUI) so it should be run from a Terminal window. Find and open a Terminal app then run the script specifying a needed command, for instance `up`:
 
@@ -139,3 +137,39 @@ You pay for a server the script reserves for you. Despite it is not expensive, 4
 - use wired connection
 
 For best network speed connect your console and a Linux machine to a router with cables. Wireless will also work but wired connection is usually faster
+
+## Automatic mode
+
+The script can be switched to automatic mode, allowing it to manage the network based on network activity from a PS console. Once the mode is enabled, the script starts monitoring network and responds as follows:
+
+- When PS network activity is observed, the script brings the network up.
+- If no activity is observed for a configurable idle timeout period, the script will automatically bring the network down.
+
+This ensures that a server VM is used only when needed saving some bill and freeing from a need to remember to manually bring the network up or down each time before/after the play. Network idle timeout can be adjusted by setting `NETWORK_IDLE_TIMEOUT_HOURS` in `config/user.conf`, thus controling how long it takes for the script to consider the network idle and shut it down.
+
+To enable automatic mode, first switch CLI to this mode:
+```
+sudo psnat3resolver auto
+```
+
+Now script commands have new meaning:
+```
+sudo psnat3resolver
+
+PS NAT3 Resolver, mode: auto
+Usage: sudo psnat3resolver up|down
+
+Commands:
+  sudo psnat3resolver up - start monitoring, up/down network automatically based on PS network activity
+  sudo psnat3resolver down - stop monitoring
+  sudo psnat3resolver status - show network status
+  sudo psnat3resolver manual - switch to manual mode
+```
+
+When the script is in auto mode, `up/down` commands enable/disable automatic network management, when in manual mode - `up/down` commands manage the network directly, ie the network gets setup/cleaned up immediately when commands are entered.
+
+To switch back to manual mode use:
+
+```
+sudo psnat3resolver manual
+```

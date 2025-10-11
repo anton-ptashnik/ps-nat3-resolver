@@ -19,28 +19,32 @@ source $USER_CONF_PATH
 
 ACTION=$1
 
+exec 3>&1
+exec >> $SCRIPT_DIR_PATH/debug.log 2>&1
 log()
 {
-  echo "$1" | tee /dev/fd/3
+  echo "$1" | tee >&3
 }
 
 usage()
 {
   log \
   "
+PS NAT3 Resolver, mode: manual
 Usage: sudo $SCRIPT_NAME up|down
 
 Commands:
   sudo $SCRIPT_NAME up - setup network
   sudo $SCRIPT_NAME down - cleanup network
   sudo $SCRIPT_NAME status - show network status and connection params
+  sudo $SCRIPT_NAME auto - switch to automatic mode
   "
   exit 1
 }
 do_droplet_create ()
 {
   local DROPLET_NAME=$1
-  local DROPLET_ID=$(curl -sS -X POST \
+  local DROPLET_ID=$(curl -v -X POST \
     -H "Content-Type: application/json" \
     -H "Authorization: Bearer $DO_TOKEN" \
     -d "{\"name\":\"$DROPLET_NAME\",\"region\":\"nyc1\",\"size\":\"s-1vcpu-512mb-10gb\",\"image\":\"ubuntu-24-04-x64\",\"ssh_keys\":[\"$SSH_KEY_FINGERPRINT\"]}" \
@@ -51,7 +55,7 @@ do_droplet_create ()
     IPADDR=null
     until [ "$IPADDR" != "null" ]; do 
       sleep 5
-      IPADDR=$(curl -sS -X GET \
+      IPADDR=$(curl -v -X GET \
         -H "Content-Type: application/json" \
         -H "Authorization: Bearer $DO_TOKEN" \
         "https://api.digitalocean.com/v2/droplets/$DROPLET_ID" | jq ".droplet.networks.v4 | map(select(.type == \"public\")) | first | .ip_address")
@@ -64,7 +68,7 @@ do_droplet_create ()
 do_droplet_remove ()
 {
   local DROPLET_ID=$1
-  curl -X DELETE \
+  curl -v -X DELETE \
     -H "Content-Type: application/json" \
     -H "Authorization: Bearer $DO_TOKEN" \
     "https://api.digitalocean.com/v2/droplets/$DROPLET_ID"
@@ -72,7 +76,7 @@ do_droplet_remove ()
 do_sshkey_check_whitelisted ()
 {
   local SSH_KEY_FINGERPRINT=$1
-  local OUT=$(curl -sS -X GET \
+  local OUT=$(curl -v -X GET \
     -H "Content-Type: application/json" \
     -H "Authorization: Bearer $DO_TOKEN" \
     "https://api.digitalocean.com/v2/account/keys" \
@@ -83,7 +87,7 @@ do_sshkey_whitelist ()
 {
   local SSH_PUBKEY_PATH=$1
   local SSH_PUBKEY=$(<$SSH_PUBKEY_PATH)
-  curl -sS -X POST \
+  curl -v -X POST \
     -H "Content-Type: application/json" \
     -H "Authorization: Bearer $DO_TOKEN" \
     -d "{\"name\":\"droplet-key\",\"public_key\":\"$SSH_PUBKEY\"}" \
@@ -150,9 +154,6 @@ show_diagnostics()
   done
   [[ "$ALL_OK" == "y" ]]
 }
-
-exec 3>&1
-exec >> $SCRIPT_DIR_PATH/debug.log 2>&1
 
 echo -e "\ncall - $0 $@"
 
@@ -237,6 +238,10 @@ case $ACTION in
     fi
     ;;
 
+  auto)
+    ln -sf "$SCRIPT_DIR_PATH/psnat3resolver-auto" /usr/local/bin/$SCRIPT_NAME
+    ;;
+    
   *)
     usage
     ;;

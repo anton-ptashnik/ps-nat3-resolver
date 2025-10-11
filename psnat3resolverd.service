@@ -1,0 +1,36 @@
+[Unit]
+Description=PS NAT3 Resolver Daemon
+Documentation=https://github.com/anton-ptashnik/ps-nat3-resolver
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+Group=root
+ExecStart=/usr/local/bin/psnat3resolverd
+Restart=no
+# RestartSec=30
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=psnat3resolverd
+
+# Security settings
+NoNewPrivileges=false
+PrivateTmp=true
+ProtectSystem=false
+ProtectHome=false
+
+# Network access required for tcpdump and network management
+PrivateNetwork=false
+
+# Capabilities needed for network operations and tcpdump
+AmbientCapabilities=CAP_NET_ADMIN CAP_NET_RAW CAP_SYS_ADMIN
+
+# Kill timeout for graceful shutdown
+TimeoutStopSec=30
+KillMode=mixed
+KillSignal=SIGTERM
+
+[Install]
+WantedBy=multi-user.target
