@@ -49,6 +49,19 @@ do_droplet_create ()
     -H "Authorization: Bearer $DO_TOKEN" \
     -d "{\"name\":\"$DROPLET_NAME\",\"region\":\"nyc1\",\"size\":\"s-1vcpu-512mb-10gb\",\"image\":\"ubuntu-24-04-x64\",\"ssh_keys\":[\"$SSH_KEY_FINGERPRINT\"]}" \
     "https://api.digitalocean.com/v2/droplets" | jq .droplet.id)
+  echo "$DROPLET_ID"
+}
+do_droplet_remove ()
+{
+  local DROPLET_ID=$1
+  curl -v -X DELETE \
+    -H "Content-Type: application/json" \
+    -H "Authorization: Bearer $DO_TOKEN" \
+    "https://api.digitalocean.com/v2/droplets/$DROPLET_ID"
+}
+do_droplet_wait_ip ()
+{
+  local DROPLET_ID=$1
   local SERVER_IP=$(timeout 50 sh -c '
     DO_TOKEN=$0
     DROPLET_ID=$1
@@ -63,15 +76,7 @@ do_droplet_create ()
     echo $IPADDR
   ' "$DO_TOKEN" "$DROPLET_ID")
   SERVER_IP=$(echo "$SERVER_IP" | tr -d '"')
-  echo "$DROPLET_ID $SERVER_IP"
-}
-do_droplet_remove ()
-{
-  local DROPLET_ID=$1
-  curl -v -X DELETE \
-    -H "Content-Type: application/json" \
-    -H "Authorization: Bearer $DO_TOKEN" \
-    "https://api.digitalocean.com/v2/droplets/$DROPLET_ID"
+  echo "$SERVER_IP"
 }
 do_sshkey_check_whitelisted ()
 {
@@ -173,11 +178,12 @@ case $ACTION in
     fi
 
     log "Reserving a server on Digital Ocean..."
-    read DROPLET_ID SERVER_IP <<< "$(do_droplet_create $DROPLET_NAME)"
-    cfg_var_set SERVER_IP
+    read DROPLET_ID <<< "$(do_droplet_create $DROPLET_NAME)"
     cfg_var_set DROPLET_ID
 
     log "Waiting for the server to become accessible..."
+    read SERVER_IP <<< "$(do_droplet_wait_ip $DROPLET_ID)"
+    cfg_var_set SERVER_IP
     export SERVER_IP
     export SSH_KEY_PATH
     timeout 50 sh -c '

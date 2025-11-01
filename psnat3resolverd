@@ -13,6 +13,7 @@ NETWORK_IDLE_TIMEOUT=${NETWORK_IDLE_TIMEOUT_HOURS}h
 NETWORK_IDLE_MONITOR_INTERVAL=10m
 
 MY_IP=$(hostname -I | awk '{print $1}')
+PSNET_MONITOR_CMD="tcpdump -c 1 -qn src host $PS_IP and dst host not $MY_IP and not arp"
 
 while true; do
     echo "Checking if a virtual link is enabled..."
@@ -21,7 +22,7 @@ while true; do
     else
         echo "Virtual link is not enabled"
         echo "Waiting for network activity from PS console ($PS_IP)..."
-        tcpdump -c 1 -qn src host $PS_IP and dst host not $MY_IP
+        eval "$PSNET_MONITOR_CMD"
         echo "Network activity observed, setting up a virtual link..."
         eval "$MAIN_SCRIPT_PATH up"
     fi
@@ -30,7 +31,7 @@ while true; do
 
     echo "Waiting for network idle to shut down, timeout is $NETWORK_IDLE_TIMEOUT..."
     while true; do
-        if ! timeout $NETWORK_IDLE_TIMEOUT tcpdump -c 1 -qn src host $PS_IP and dst host not $MY_IP; then
+        if ! eval "timeout $NETWORK_IDLE_TIMEOUT $PSNET_MONITOR_CMD"; then
             echo "No PS console network activity observed during $NETWORK_IDLE_TIMEOUT. Shutting down network..."
             eval "$MAIN_SCRIPT_PATH down"
             break
